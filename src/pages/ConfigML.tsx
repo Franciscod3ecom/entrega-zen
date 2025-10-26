@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useTenant } from "@/contexts/TenantContext";
 import { Loader2, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -15,6 +16,7 @@ export default function ConfigML() {
   const [connectionInfo, setConnectionInfo] = useState<any>(null);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const { currentTenant } = useTenant();
 
   useEffect(() => {
     checkConnection();
@@ -38,13 +40,16 @@ export default function ConfigML() {
         variant: "destructive",
       });
     }
-  }, [searchParams]);
+  }, [searchParams, currentTenant]);
 
   const checkConnection = async () => {
+    if (!currentTenant) return;
+    
     try {
       const { data, error } = await supabase
-        .from('ml_tokens')
+        .from('ml_accounts')
         .select('*')
+        .eq('tenant_id', currentTenant.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -64,10 +69,21 @@ export default function ConfigML() {
   };
 
   const handleConnect = async () => {
+    if (!currentTenant) {
+      toast({
+        title: "Erro",
+        description: "Nenhum workspace selecionado",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('meli-auth');
+      const { data, error } = await supabase.functions.invoke('meli-auth', {
+        body: { tenant_id: currentTenant.id }
+      });
 
       if (error) throw error;
 
@@ -113,9 +129,9 @@ export default function ConfigML() {
                   <AlertDescription className="text-green-800 dark:text-green-200">
                     <strong>Conectado com sucesso!</strong>
                     <div className="mt-2 space-y-1 text-sm">
-                      <p>Vendedor: {connectionInfo?.seller_nickname}</p>
+                      <p>Vendedor: {connectionInfo?.nickname}</p>
                       <p>Site: {connectionInfo?.site_id}</p>
-                      <p>User ID: {connectionInfo?.user_id}</p>
+                      <p>ML User ID: {connectionInfo?.ml_user_id}</p>
                     </div>
                   </AlertDescription>
                 </Alert>

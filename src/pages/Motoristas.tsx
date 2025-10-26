@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTenant } from "@/contexts/TenantContext";
 import {
   Table,
   TableBody,
@@ -39,6 +40,7 @@ export default function Motoristas() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newDriver, setNewDriver] = useState({ name: "", phone: "" });
+  const { currentTenant } = useTenant();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -69,11 +71,17 @@ export default function Motoristas() {
       return;
     }
 
+    if (!currentTenant) {
+      toast.error("Nenhum workspace selecionado");
+      return;
+    }
+
     const { error } = await supabase.from("drivers").insert([
       {
         name: newDriver.name,
         phone: newDriver.phone,
         active: true,
+        tenant_id: currentTenant.id,
       },
     ]);
 

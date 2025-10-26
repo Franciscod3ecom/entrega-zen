@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TenantSelector } from "./TenantSelector";
 
 interface LayoutProps {
   children: ReactNode;
@@ -115,6 +116,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <span className="text-xl font-bold">RASTREIO_FLEX</span>
             </Link>
+            <TenantSelector />
           </div>
           <Button variant="ghost" size="icon" onClick={handleLogout}>
             <LogOut className="h-5 w-5" />

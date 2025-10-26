@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
 import { Loader2, Search, Link as LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useTenant } from "@/contexts/TenantContext";
 
 export default function VincularVenda() {
   const [inputId, setInputId] = useState("");
@@ -19,6 +20,7 @@ export default function VincularVenda() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const { toast } = useToast();
+  const { currentTenant } = useTenant();
 
   const { data: drivers, isLoading: driversLoading } = useQuery({
     queryKey: ['drivers'],
@@ -90,6 +92,15 @@ export default function VincularVenda() {
       return;
     }
 
+    if (!currentTenant) {
+      toast({
+        title: "Erro",
+        description: "Nenhum workspace selecionado",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLinking(true);
 
     try {
@@ -98,6 +109,7 @@ export default function VincularVenda() {
         .insert({
           driver_id: selectedDriver,
           shipment_id: shipmentData.shipment_id,
+          tenant_id: currentTenant.id,
         });
 
       if (error) throw error;

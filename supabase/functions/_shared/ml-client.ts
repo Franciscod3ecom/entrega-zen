@@ -11,37 +11,52 @@ interface MLToken {
   access_token: string;
   refresh_token: string;
   expires_at: string;
-  user_id: number;
+  ml_user_id: number;
   site_id: string;
+  tenant_id: string;
 }
 
-export async function getValidToken(): Promise<MLToken> {
+export async function getValidToken(tenantId: string, mlUserId?: number): Promise<MLToken> {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  const { data: tokens, error } = await supabase
-    .from('ml_tokens')
+  let query = supabase
+    .from('ml_accounts')
     .select('*')
+    .eq('tenant_id', tenantId);
+  
+  if (mlUserId) {
+    query = query.eq('ml_user_id', mlUserId);
+  }
+  
+  const { data: account, error } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (error || !tokens) {
-    throw new Error('Nenhum token ML encontrado. Configure a integração primeiro.');
+  if (error || !account) {
+    throw new Error('Nenhuma conta ML encontrada para este tenant. Configure a integração primeiro.');
   }
 
-  const expiresAt = new Date(tokens.expires_at);
+  const expiresAt = new Date(account.expires_at);
   const now = new Date();
   
   // Se o token expira em menos de 5 minutos, renovar
   if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
     console.log('Token expirando em breve, renovando...');
-    return await refreshToken(tokens.refresh_token, tokens.site_id, tokens.user_id);
+    return await refreshToken(account.refresh_token, account.site_id, account.ml_user_id, account.tenant_id);
   }
 
-  return tokens as MLToken;
+  return {
+    access_token: account.access_token,
+    refresh_token: account.refresh_token,
+    expires_at: account.expires_at,
+    ml_user_id: account.ml_user_id,
+    site_id: account.site_id,
+    tenant_id: account.tenant_id,
+  };
 }
 
-async function refreshToken(refreshToken: string, siteId: string, userId: number): Promise<MLToken> {
+async function refreshToken(refreshToken: string, siteId: string, mlUserId: number, tenantId: string): Promise<MLToken> {
   const response = await fetch(`${ML_BASE_URL}/oauth/token`, {
     method: 'POST',
     headers: {
@@ -67,27 +82,31 @@ async function refreshToken(refreshToken: string, siteId: string, userId: number
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
   await supabase
-    .from('ml_tokens')
+    .from('ml_accounts')
     .update({
       access_token: data.access_token,
       refresh_token: data.refresh_token,
       expires_at: expiresAt.toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq('site_id', siteId)
-    .eq('user_id', userId);
+    .eq('tenant_id', tenantId)
+    .eq('ml_user_id', mlUserId);
 
   return {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
     expires_at: expiresAt.toISOString(),
-    user_id: userId,
+    ml_user_id: mlUserId,
     site_id: siteId,
+    tenant_id: tenantId,
   };
 }
 
-export async function mlGet(path: string, params: Record<string, string> = {}): Promise<any> {
-  const token = await getValidToken();
+export async function mlGet(path: string, params: Record<string, string> = {}, tenantId?: string): Promise<any> {
+  if (!tenantId) {
+    throw new Error('tenant_id é obrigatório para chamadas ML');
+  }
+  const token = await getValidToken(tenantId);
   const url = new URL(`${ML_BASE_URL}${path}`);
   
   Object.entries(params).forEach(([key, value]) => {
@@ -132,8 +151,11 @@ export async function mlGet(path: string, params: Record<string, string> = {}): 
   }
 }
 
-export async function mlPost(path: string, body: any): Promise<any> {
-  const token = await getValidToken();
+export async function mlPost(path: string, body: any, tenantId?: string): Promise<any> {
+  if (!tenantId) {
+    throw new Error('tenant_id é obrigatório para chamadas ML');
+  }
+  const token = await getValidToken(tenantId);
 
   const response = await fetch(`${ML_BASE_URL}${path}`, {
     method: 'POST',

@@ -16,10 +16,25 @@ serve(async (req) => {
   try {
     console.log('Iniciando OAuth ML...');
     
+    // Obter tenant_id do body
+    const { tenant_id } = await req.json();
+    
+    if (!tenant_id) {
+      throw new Error('tenant_id é obrigatório');
+    }
+    
+    // Criar state com tenant_id e nonce para segurança
+    const state = btoa(JSON.stringify({
+      tenant_id,
+      nonce: crypto.randomUUID(),
+      exp: Date.now() + 10 * 60 * 1000, // 10 minutos
+    }));
+    
     const authUrl = new URL('https://auth.mercadolivre.com.br/authorization');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', ML_CLIENT_ID);
     authUrl.searchParams.set('redirect_uri', ML_REDIRECT_URI);
+    authUrl.searchParams.set('state', state);
     
     console.log('URL de autorização gerada:', authUrl.toString());
 

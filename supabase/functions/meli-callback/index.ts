@@ -14,6 +14,7 @@ serve(async (req) => {
     console.log('Query params recebidos:', Object.fromEntries(url.searchParams.entries()));
     
     const code = url.searchParams.get('code');
+    const stateParam = url.searchParams.get('state');
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
 
@@ -22,12 +23,27 @@ serve(async (req) => {
       throw new Error(`Erro do Mercado Livre: ${error} - ${errorDescription}`);
     }
 
-    if (!code) {
-      console.error('Código não recebido. Params:', Object.fromEntries(url.searchParams.entries()));
-      throw new Error('Código de autorização não fornecido pelo Mercado Livre');
+    if (!code || !stateParam) {
+      console.error('Código ou state não recebido. Params:', Object.fromEntries(url.searchParams.entries()));
+      throw new Error('Código de autorização ou state não fornecido pelo Mercado Livre');
     }
 
-    console.log('Callback recebido com code:', code.substring(0, 10) + '...');
+    // Validar state
+    let state;
+    try {
+      state = JSON.parse(atob(stateParam));
+      if (!state.tenant_id || !state.nonce) {
+        throw new Error('State inválido');
+      }
+      if (Date.now() > state.exp) {
+        throw new Error('State expirado');
+      }
+    } catch (e) {
+      console.error('Erro ao validar state:', e);
+      throw new Error('State inválido ou expirado');
+    }
+
+    console.log('Callback recebido com code:', code.substring(0, 10) + '...', 'tenant_id:', state.tenant_id);
 
     // Trocar code por access_token
     const tokenResponse = await fetch('https://api.mercadolibre.com/oauth/token', {
@@ -67,22 +83,23 @@ serve(async (req) => {
     const userData = await userResponse.json();
     console.log('Dados do usuário obtidos:', userData.nickname);
 
-    // Salvar tokens no banco
+    // Salvar tokens no banco com tenant_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
     const { error: dbError } = await supabase
-      .from('ml_tokens')
+      .from('ml_accounts')
       .upsert({
+        tenant_id: state.tenant_id,
+        ml_user_id: tokenData.user_id,
+        nickname: userData.nickname,
         site_id: userData.site_id,
-        user_id: tokenData.user_id,
-        seller_nickname: userData.nickname,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expires_at: expiresAt.toISOString(),
       }, {
-        onConflict: 'site_id,user_id',
+        onConflict: 'tenant_id,ml_user_id',
       });
 
     if (dbError) {
@@ -90,7 +107,7 @@ serve(async (req) => {
       throw dbError;
     }
 
-    console.log('Token salvo com sucesso no banco');
+    console.log('Conta ML salva com sucesso no banco para tenant:', state.tenant_id);
 
     // Redirecionar para página de sucesso
     const redirectUrl = `${url.origin}/dashboard?ml_connected=true`;
