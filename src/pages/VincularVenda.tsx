@@ -12,15 +12,17 @@ import { formatBRT } from "@/lib/date-utils";
 import { Loader2, Search, Link as LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
+import { useMLAccount } from "@/contexts/MLAccountContext";
 
 export default function VincularVenda() {
+  const { currentTenant } = useTenant();
+  const { currentAccount } = useMLAccount();
   const [inputId, setInputId] = useState("");
   const [shipmentData, setShipmentData] = useState<any>(null);
   const [selectedDriver, setSelectedDriver] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const { toast } = useToast();
-  const { currentTenant } = useTenant();
 
   const { data: drivers, isLoading: driversLoading } = useQuery({
     queryKey: ['drivers'],
@@ -46,12 +48,25 @@ export default function VincularVenda() {
       return;
     }
 
+    if (!currentTenant || !currentAccount) {
+      toast({
+        title: "Erro",
+        description: "Selecione workspace e conta ML",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSearching(true);
     setShipmentData(null);
 
     try {
       const { data, error } = await supabase.functions.invoke('resolve-shipment', {
-        body: { input_id: inputId.trim() },
+        body: { 
+          input_id: inputId.trim(),
+          tenant_id: currentTenant.id,
+          ml_user_id: currentAccount.ml_user_id,
+        },
       });
 
       if (error) throw error;
@@ -92,10 +107,10 @@ export default function VincularVenda() {
       return;
     }
 
-    if (!currentTenant) {
+    if (!currentTenant || !currentAccount) {
       toast({
         title: "Erro",
-        description: "Nenhum workspace selecionado",
+        description: "Nenhum workspace ou conta ML selecionada",
         variant: "destructive",
       });
       return;
@@ -104,12 +119,25 @@ export default function VincularVenda() {
     setIsLinking(true);
 
     try {
+      // Buscar ml_account_id
+      const { data: mlAccount } = await supabase
+        .from('ml_accounts')
+        .select('id')
+        .eq('tenant_id', currentTenant.id)
+        .eq('ml_user_id', currentAccount.ml_user_id)
+        .single();
+
+      if (!mlAccount) {
+        throw new Error('Conta ML não encontrada');
+      }
+
       const { error } = await supabase
         .from('driver_assignments')
         .insert({
           driver_id: selectedDriver,
           shipment_id: shipmentData.shipment_id,
           tenant_id: currentTenant.id,
+          ml_account_id: mlAccount.id,
         });
 
       if (error) throw error;

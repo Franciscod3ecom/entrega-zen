@@ -13,6 +13,8 @@ import { formatBRT } from "@/lib/date-utils";
 import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { useTenant } from "@/contexts/TenantContext";
+import { useMLAccount } from "@/contexts/MLAccountContext";
 
 interface ScannedItem {
   code: string;
@@ -24,6 +26,8 @@ interface ScannedItem {
 }
 
 export default function Bipagem() {
+  const { currentTenant } = useTenant();
+  const { currentAccount } = useMLAccount();
   const [selectedDriver, setSelectedDriver] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
@@ -63,6 +67,15 @@ export default function Bipagem() {
       return;
     }
 
+    if (!currentTenant || !currentAccount) {
+      toast({
+        title: "Erro",
+        description: "Workspace e conta ML não selecionados",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Extrair shipment_id do código (pode ser QR com URL ou número direto)
     let shipmentId = code.trim();
     
@@ -82,6 +95,8 @@ export default function Bipagem() {
         body: { 
           driver_id: selectedDriver, 
           shipment_id: shipmentId,
+          tenant_id: currentTenant.id,
+          ml_user_id: currentAccount.ml_user_id,
         },
       });
 

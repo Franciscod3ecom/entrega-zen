@@ -17,18 +17,30 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { driver_id, shipment_id } = await req.json();
+    const { driver_id, shipment_id, tenant_id, ml_user_id } = await req.json();
 
-    if (!driver_id || !shipment_id) {
-      throw new Error('driver_id e shipment_id são obrigatórios');
+    if (!driver_id || !shipment_id || !tenant_id || !ml_user_id) {
+      throw new Error('driver_id, shipment_id, tenant_id e ml_user_id são obrigatórios');
     }
 
-    console.log(`[scan-bind] Processando shipment_id: ${shipment_id} para motorista: ${driver_id}`);
+    console.log(`[scan-bind] Processando shipment_id: ${shipment_id} para motorista: ${driver_id} (tenant: ${tenant_id}, ml_user: ${ml_user_id})`);
 
-    // 1. Validar shipment_id com GET /shipments/{id} (fonte da verdade)
+    // 1. Buscar ml_account_id
+    const { data: mlAccount } = await supabase
+      .from('ml_accounts')
+      .select('id')
+      .eq('tenant_id', tenant_id)
+      .eq('ml_user_id', ml_user_id)
+      .single();
+
+    if (!mlAccount) {
+      throw new Error('Conta ML não encontrada');
+    }
+
+    // 2. Validar shipment_id com GET /shipments/{id} (fonte da verdade)
     let shipmentData;
     try {
-      shipmentData = await mlGet(`/shipments/${shipment_id}`);
+      shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, tenant_id, ml_user_id);
       if (!shipmentData || !shipmentData.id) {
         throw new Error(`Shipment ${shipment_id} não encontrado no Mercado Livre`);
       }
@@ -46,11 +58,13 @@ serve(async (req) => {
     const order_id = shipmentData.order_id ? String(shipmentData.order_id) : null;
     const now = new Date().toISOString();
 
-    // 2. Upsert em shipments_cache
+    // 3. Upsert em shipments_cache
     const { error: cacheError } = await supabase
       .from('shipments_cache')
       .upsert({
         shipment_id: String(shipment_id),
+        tenant_id: tenant_id,
+        ml_account_id: mlAccount.id,
         status,
         substatus,
         tracking_number: tracking,
@@ -68,12 +82,13 @@ serve(async (req) => {
 
     console.log(`[scan-bind] ✓ Cache atualizado`);
 
-    // 3. Verificar se já existe assignment
+    // 4. Verificar se já existe assignment
     const { data: existingAssignment } = await supabase
       .from('driver_assignments')
       .select('*')
       .eq('shipment_id', String(shipment_id))
       .eq('driver_id', driver_id)
+      .eq('tenant_id', tenant_id)
       .maybeSingle();
 
     if (existingAssignment) {
@@ -92,6 +107,8 @@ serve(async (req) => {
         .insert({
           driver_id,
           shipment_id: String(shipment_id),
+          tenant_id,
+          ml_account_id: mlAccount.id,
           assigned_at: now,
           scanned_at: now,
         });
@@ -100,18 +117,20 @@ serve(async (req) => {
       console.log(`[scan-bind] ✓ Novo assignment criado`);
     }
 
-    // 4. Registrar em scan_logs (histórico)
+    // 5. Registrar em scan_logs (histórico)
     await supabase
       .from('scan_logs')
       .insert({
         driver_id,
         shipment_id: String(shipment_id),
+        tenant_id,
+        ml_account_id: mlAccount.id,
         scanned_code: String(shipment_id),
         resolved_from: 'qr_direct',
         scanned_at: now,
       });
 
-    // 5. Retornar card completo
+    // 6. Retornar card completo
     return new Response(
       JSON.stringify({ 
         success: true,

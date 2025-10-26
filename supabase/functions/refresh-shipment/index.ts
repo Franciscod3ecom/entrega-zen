@@ -16,22 +16,35 @@ serve(async (req) => {
   }
 
   try {
-    const { shipment_id } = await req.json();
+    const { shipment_id, tenant_id, ml_user_id } = await req.json();
 
-    if (!shipment_id) {
-      throw new Error('shipment_id é obrigatório');
+    if (!shipment_id || !tenant_id || !ml_user_id) {
+      throw new Error('shipment_id, tenant_id e ml_user_id são obrigatórios');
     }
 
-    console.log('Atualizando shipment:', shipment_id);
+    console.log('Atualizando shipment:', shipment_id, 'tenant:', tenant_id, 'ml_user:', ml_user_id);
 
-    const shipmentData = await mlGet(`/shipments/${shipment_id}`);
-
+    // Buscar ml_account_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: mlAccount } = await supabase
+      .from('ml_accounts')
+      .select('id')
+      .eq('tenant_id', tenant_id)
+      .eq('ml_user_id', ml_user_id)
+      .single();
+
+    if (!mlAccount) {
+      throw new Error('Conta ML não encontrada');
+    }
+
+    const shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, tenant_id, ml_user_id);
     
     const { error: cacheError } = await supabase
       .from('shipments_cache')
       .upsert({
         shipment_id: shipment_id.toString(),
+        tenant_id: tenant_id,
+        ml_account_id: mlAccount.id,
         order_id: shipmentData.order_id ? shipmentData.order_id.toString() : null,
         pack_id: shipmentData.pack_id ? shipmentData.pack_id.toString() : null,
         status: shipmentData.status || shipmentData.substatus || 'unknown',

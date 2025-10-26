@@ -83,16 +83,25 @@ serve(async (req) => {
     const userData = await userResponse.json();
     console.log('Dados do usuário obtidos:', userData.nickname);
 
-    // Salvar tokens no banco com tenant_id
+    // Salvar tokens no banco com tenant_id e owner_user_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+    
+    // Buscar owner_user_id do tenant
+    const { data: membership } = await supabase
+      .from('memberships')
+      .select('user_id')
+      .eq('tenant_id', state.tenant_id)
+      .limit(1)
+      .single();
 
     const { error: dbError } = await supabase
       .from('ml_accounts')
       .upsert({
         tenant_id: state.tenant_id,
         ml_user_id: tokenData.user_id,
+        owner_user_id: membership?.user_id,
         nickname: userData.nickname,
         site_id: userData.site_id,
         access_token: tokenData.access_token,

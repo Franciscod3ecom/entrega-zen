@@ -43,11 +43,11 @@ async function processWebhook(body: any) {
       return;
     }
 
-    // Buscar tenant_id baseado no ml_user_id
+    // Buscar tenant_id e ml_account_id baseado no ml_user_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: account, error } = await supabase
       .from('ml_accounts')
-      .select('tenant_id')
+      .select('id, tenant_id, ml_user_id')
       .eq('ml_user_id', user_id)
       .maybeSingle();
 
@@ -57,12 +57,14 @@ async function processWebhook(body: any) {
     }
 
     const tenantId = account.tenant_id;
-    console.log('Tenant identificado:', tenantId);
+    const mlUserId = account.ml_user_id;
+    const mlAccountId = account.id;
+    console.log('Tenant identificado:', tenantId, 'ML User:', mlUserId);
 
     if (topic === 'shipments') {
-      await processShipment(resource, tenantId);
+      await processShipment(resource, tenantId, mlUserId, mlAccountId);
     } else if (topic === 'orders' || topic === 'marketplace_orders') {
-      await processOrder(resource, tenantId);
+      await processOrder(resource, tenantId, mlUserId, mlAccountId);
     }
 
     console.log('Webhook processado com sucesso para tenant:', tenantId);
@@ -72,7 +74,7 @@ async function processWebhook(body: any) {
   }
 }
 
-async function processShipment(resource: string, tenantId: string) {
+async function processShipment(resource: string, tenantId: string, mlUserId: number, mlAccountId: string) {
   try {
     // Extrair shipment_id do resource (/shipments/123456)
     const shipmentId = resource.split('/').pop();
@@ -82,8 +84,8 @@ async function processShipment(resource: string, tenantId: string) {
       return;
     }
 
-    console.log('Buscando shipment:', shipmentId, 'para tenant:', tenantId);
-    const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, tenantId);
+    console.log('Buscando shipment:', shipmentId, 'para tenant:', tenantId, 'ml_user:', mlUserId);
+    const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, tenantId, mlUserId);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
@@ -99,6 +101,7 @@ async function processShipment(resource: string, tenantId: string) {
         last_ml_update: new Date().toISOString(),
         raw_data: shipmentData,
         tenant_id: tenantId,
+        ml_account_id: mlAccountId,
       }, {
         onConflict: 'shipment_id',
       });
@@ -110,7 +113,7 @@ async function processShipment(resource: string, tenantId: string) {
   }
 }
 
-async function processOrder(resource: string, tenantId: string) {
+async function processOrder(resource: string, tenantId: string, mlUserId: number, mlAccountId: string) {
   try {
     // Extrair order_id do resource (/orders/123456)
     const orderId = resource.split('/').pop();
@@ -120,23 +123,23 @@ async function processOrder(resource: string, tenantId: string) {
       return;
     }
 
-    console.log('Buscando order:', orderId, 'para tenant:', tenantId);
-    const orderData = await mlGet(`/orders/${orderId}`, {}, tenantId);
+    console.log('Buscando order:', orderId, 'para tenant:', tenantId, 'ml_user:', mlUserId);
+    const orderData = await mlGet(`/orders/${orderId}`, {}, tenantId, mlUserId);
 
     // Se o order tem pack_id, processar todos os orders do pack
     if (orderData.pack_id) {
       console.log('Order pertence ao pack:', orderData.pack_id);
-      const packData = await mlGet(`/packs/${orderData.pack_id}`, {}, tenantId);
+      const packData = await mlGet(`/packs/${orderData.pack_id}`, {}, tenantId, mlUserId);
       
       // Processar shipments de todos os orders do pack
       for (const order of packData.orders || []) {
         if (order.shipping?.id) {
-          await processShipment(`/shipments/${order.shipping.id}`, tenantId);
+          await processShipment(`/shipments/${order.shipping.id}`, tenantId, mlUserId, mlAccountId);
         }
       }
     } else if (orderData.shipping?.id) {
       // Order individual com shipment
-      await processShipment(`/shipments/${orderData.shipping.id}`, tenantId);
+      await processShipment(`/shipments/${orderData.shipping.id}`, tenantId, mlUserId, mlAccountId);
     }
 
     console.log('Order processado:', orderId, 'para tenant:', tenantId);

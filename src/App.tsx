@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TenantProvider } from "./contexts/TenantContext";
+import { MLAccountProvider } from "./contexts/MLAccountContext";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
@@ -23,7 +24,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TenantProvider>
-          <Routes>
+          <MLAccountProvider>
+            <Routes>
             <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -34,7 +36,8 @@ const App = () => (
             <Route path="/pendencias" element={<Pendencias />} />
             <Route path="/config-ml" element={<ConfigML />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
+            </Routes>
+          </MLAccountProvider>
         </TenantProvider>
       </BrowserRouter>
     </TooltipProvider>

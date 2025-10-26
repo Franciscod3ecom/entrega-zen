@@ -16,25 +16,22 @@ interface MLToken {
   tenant_id: string;
 }
 
-export async function getValidToken(tenantId: string, mlUserId?: number): Promise<MLToken> {
+export async function getValidToken(tenantId: string, mlUserId: number): Promise<MLToken> {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  let query = supabase
-    .from('ml_accounts')
-    .select('*')
-    .eq('tenant_id', tenantId);
-  
-  if (mlUserId) {
-    query = query.eq('ml_user_id', mlUserId);
+  if (!mlUserId) {
+    throw new Error('ml_user_id é obrigatório. Especifique qual conta ML usar.');
   }
   
-  const { data: account, error } = await query
-    .order('created_at', { ascending: false })
-    .limit(1)
+  const { data: account, error } = await supabase
+    .from('ml_accounts')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .eq('ml_user_id', mlUserId)
     .maybeSingle();
 
   if (error || !account) {
-    throw new Error('Nenhuma conta ML encontrada para este tenant. Configure a integração primeiro.');
+    throw new Error(`Nenhuma conta ML encontrada para tenant ${tenantId} e user ${mlUserId}`);
   }
 
   const expiresAt = new Date(account.expires_at);
@@ -102,11 +99,11 @@ async function refreshToken(refreshToken: string, siteId: string, mlUserId: numb
   };
 }
 
-export async function mlGet(path: string, params: Record<string, string> = {}, tenantId?: string): Promise<any> {
-  if (!tenantId) {
-    throw new Error('tenant_id é obrigatório para chamadas ML');
+export async function mlGet(path: string, params: Record<string, string> = {}, tenantId: string, mlUserId: number): Promise<any> {
+  if (!tenantId || !mlUserId) {
+    throw new Error('tenant_id e ml_user_id são obrigatórios para chamadas ML');
   }
-  const token = await getValidToken(tenantId);
+  const token = await getValidToken(tenantId, mlUserId);
   const url = new URL(`${ML_BASE_URL}${path}`);
   
   Object.entries(params).forEach(([key, value]) => {
@@ -151,11 +148,11 @@ export async function mlGet(path: string, params: Record<string, string> = {}, t
   }
 }
 
-export async function mlPost(path: string, body: any, tenantId?: string): Promise<any> {
-  if (!tenantId) {
-    throw new Error('tenant_id é obrigatório para chamadas ML');
+export async function mlPost(path: string, body: any, tenantId: string, mlUserId: number): Promise<any> {
+  if (!tenantId || !mlUserId) {
+    throw new Error('tenant_id e ml_user_id são obrigatórios para chamadas ML');
   }
-  const token = await getValidToken(tenantId);
+  const token = await getValidToken(tenantId, mlUserId);
 
   const response = await fetch(`${ML_BASE_URL}${path}`, {
     method: 'POST',

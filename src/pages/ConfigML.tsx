@@ -5,19 +5,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
+import { useMLAccount } from "@/contexts/MLAccountContext";
 import { Loader2, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import Layout from "@/components/Layout";
 
+const MAX_ML_ACCOUNTS = 5;
+
 export default function ConfigML() {
+  const { currentTenant } = useTenant();
+  const { refreshAccounts } = useMLAccount();
   const [isLoading, setIsLoading] = useState(false);
   const [mlAccounts, setMlAccounts] = useState<any[]>([]);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const { currentTenant } = useTenant();
-
-  const MAX_ML_ACCOUNTS = 5;
 
   useEffect(() => {
     checkConnection();
@@ -32,6 +34,7 @@ export default function ConfigML() {
         description: "Conta do Mercado Livre conectada com sucesso!",
       });
       checkConnection();
+      refreshAccounts(); // Atualizar contexto
     }
 
     if (mlError) {
@@ -121,6 +124,7 @@ export default function ConfigML() {
       });
       
       checkConnection();
+      refreshAccounts(); // Atualizar contexto
     } catch (error: any) {
       console.error('Erro ao remover conta:', error);
       toast({

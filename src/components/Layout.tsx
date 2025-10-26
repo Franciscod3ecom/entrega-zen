@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TenantSelector } from "./TenantSelector";
+import { MLAccountSelector } from "./MLAccountSelector";
 
 interface LayoutProps {
   children: ReactNode;
@@ -116,11 +117,14 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <span className="text-xl font-bold">RASTREIO_FLEX</span>
             </Link>
-            <TenantSelector />
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-4">
+            <TenantSelector />
+            <MLAccountSelector />
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
