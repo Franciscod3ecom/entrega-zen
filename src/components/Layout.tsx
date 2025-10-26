@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { TenantSelector } from "./TenantSelector";
 import { MLAccountSelector } from "./MLAccountSelector";
 
 interface LayoutProps {
@@ -119,7 +118,6 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           </div>
           <div className="flex items-center gap-4">
-            <TenantSelector />
             <MLAccountSelector />
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />

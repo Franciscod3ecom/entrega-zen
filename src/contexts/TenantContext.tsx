@@ -37,32 +37,56 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Buscar tenants do usuário
-      const { data: memberships, error } = await supabase
+      const userId = session.session.user.id;
+
+      // Buscar tenant do usuário via memberships
+      const { data: memberships, error: membershipError } = await supabase
         .from('memberships')
         .select('tenant_id, tenants(id, name, created_at)')
-        .eq('user_id', session.session.user.id);
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
 
-      if (error) throw error;
+      let userTenant: Tenant | null = null;
 
-      const userTenants = memberships
-        ?.map(m => (m as any).tenants)
-        .filter(Boolean) || [];
+      if (membershipError || !memberships) {
+        // Se não existe membership, criar tenant e membership automaticamente
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', userId)
+          .single();
 
-      setTenants(userTenants);
+        const tenantName = profile?.name ? `Workspace de ${profile.name}` : 'Meu Workspace';
 
-      // Recuperar tenant do localStorage ou usar o primeiro
-      const savedTenantId = localStorage.getItem('currentTenantId');
-      const savedTenant = userTenants.find(t => t.id === savedTenantId);
+        // Criar tenant
+        const { data: newTenant, error: tenantError } = await supabase
+          .from('tenants')
+          .insert({ name: tenantName })
+          .select()
+          .single();
 
-      if (savedTenant) {
-        setCurrentTenantState(savedTenant);
-      } else if (userTenants.length > 0) {
-        setCurrentTenantState(userTenants[0]);
-        localStorage.setItem('currentTenantId', userTenants[0].id);
+        if (tenantError) throw tenantError;
+
+        // Criar membership
+        const { error: newMembershipError } = await supabase
+          .from('memberships')
+          .insert({ user_id: userId, tenant_id: newTenant.id, role: 'admin' });
+
+        if (newMembershipError) throw newMembershipError;
+
+        userTenant = newTenant;
+      } else {
+        userTenant = (memberships as any).tenants;
+      }
+
+      if (userTenant) {
+        setTenants([userTenant]);
+        setCurrentTenantState(userTenant);
+        localStorage.setItem('currentTenantId', userTenant.id);
       }
     } catch (error) {
-      console.error('Erro ao carregar tenants:', error);
+      console.error('Erro ao carregar tenant:', error);
     } finally {
       setLoading(false);
     }
