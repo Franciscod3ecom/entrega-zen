@@ -23,7 +23,7 @@ serve(async (req) => {
       throw new Error('driver_id, shipment_id e tenant_id são obrigatórios');
     }
 
-    console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (tenant: ${tenant_id})`);
+    console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (tipo: ${typeof shipment_id}, tenant: ${tenant_id})`);
 
     // 1. Buscar todas as contas ML ativas do tenant
     const { data: mlAccounts, error: accountsError } = await supabase

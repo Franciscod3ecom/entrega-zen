@@ -87,13 +87,37 @@ export default function Bipagem() {
       return;
     }
 
-    // Extrair shipment_id do código (pode ser QR com URL ou número direto)
+    // Extrair shipment_id do código
     let shipmentId = code.trim();
     
-    // Se for URL/QR com path, extrair o ID
-    const urlMatch = code.match(/shipments?[\/:](\d+)/i);
-    if (urlMatch) {
-      shipmentId = urlMatch[1];
+    // 1️⃣ Tentar parsear como JSON (QR code do Mercado Livre)
+    try {
+      const parsed = JSON.parse(code);
+      if (parsed.id) {
+        shipmentId = String(parsed.id);
+        console.log(`[Bipagem] QR JSON detectado: ${shipmentId}`);
+      }
+    } catch {
+      // Não é JSON, continuar com outras tentativas
+    }
+    
+    // 2️⃣ Se ainda não extraiu, tentar URL (ex: "https://...shipments/123")
+    if (shipmentId === code) {
+      const urlMatch = code.match(/shipments?[\/:](\d+)/i);
+      if (urlMatch) {
+        shipmentId = urlMatch[1];
+        console.log(`[Bipagem] URL detectada: ${shipmentId}`);
+      }
+    }
+    
+    // 3️⃣ Validar que temos um ID numérico válido
+    if (!/^\d+$/.test(shipmentId)) {
+      toast({
+        title: "❌ Código inválido",
+        description: `O código "${code.substring(0, 50)}..." não é um shipment ID válido`,
+        variant: "destructive",
+      });
+      return;
     }
 
     setLastScanned(code);
