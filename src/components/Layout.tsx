@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings } from "lucide-react";
+import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +59,15 @@ export default function Layout({ children }: LayoutProps) {
         >
           <Link2 className="mr-2 h-4 w-4" />
           Vincular Venda
+        </Button>
+      </Link>
+      <Link to="/bipagem">
+        <Button
+          variant={location.pathname === "/bipagem" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <Scan className="mr-2 h-4 w-4" />
+          Bipagem
         </Button>
       </Link>
       <Link to="/pendencias">

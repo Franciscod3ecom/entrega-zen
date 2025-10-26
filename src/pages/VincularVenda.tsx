@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -123,132 +124,134 @@ export default function VincularVenda() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Vincular Venda a Motorista</h1>
-        <p className="text-muted-foreground">
-          Busque por Order ID, Pack ID ou Shipment ID e vincule a um motorista
-        </p>
-      </div>
+    <Layout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Vincular Venda a Motorista</h1>
+          <p className="text-muted-foreground">
+            Busque por Order ID, Pack ID ou Shipment ID e vincule a um motorista
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Buscar Envio</CardTitle>
-          <CardDescription>
-            Digite o Order ID, Pack ID ou Shipment ID do Mercado Livre
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-900 dark:text-blue-100">
-            <p className="font-semibold mb-1">💡 Dica importante:</p>
-            <p>Se a compra foi um <strong>carrinho</strong> (múltiplos produtos), informe o <strong>Pack ID</strong>. Um pack pode conter vários pedidos mas geralmente tem um único envio.</p>
-          </div>
-
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Input
-                placeholder="Ex: 1234567890, MLB1234567890"
-                value={inputId}
-                onChange={(e) => setInputId(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
+        <Card>
+          <CardHeader>
+            <CardTitle>Buscar Envio</CardTitle>
+            <CardDescription>
+              Digite o Order ID, Pack ID ou Shipment ID do Mercado Livre
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-900 dark:text-blue-100">
+              <p className="font-semibold mb-1">💡 Dica importante:</p>
+              <p>Se a compra foi um <strong>carrinho</strong> (múltiplos produtos), informe o <strong>Pack ID</strong>. Um pack pode conter vários pedidos mas geralmente tem um único envio.</p>
             </div>
-            <Button onClick={handleSearch} disabled={isSearching}>
-              {isSearching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              <span className="ml-2">Buscar</span>
-            </Button>
-          </div>
 
-          {shipmentData && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Envio Encontrado</span>
-                  <StatusBadge 
-                    status={shipmentData.status} 
-                    substatus={shipmentData.substatus}
-                  />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="font-semibold">Shipment ID:</p>
-                    <p className="text-muted-foreground font-mono">{shipmentData.shipment_id}</p>
-                  </div>
-                  {shipmentData.order_id && (
-                    <div>
-                      <p className="font-semibold">Order ID:</p>
-                      <p className="text-muted-foreground font-mono">{shipmentData.order_id}</p>
-                    </div>
-                  )}
-                  {shipmentData.pack_id && (
-                    <div>
-                      <p className="font-semibold">Pack ID:</p>
-                      <p className="text-muted-foreground font-mono">{shipmentData.pack_id}</p>
-                    </div>
-                  )}
-                  {shipmentData.tracking_number && (
-                    <div>
-                      <p className="font-semibold">Rastreamento:</p>
-                      <p className="text-muted-foreground font-mono">{shipmentData.tracking_number}</p>
-                    </div>
-                  )}
-                </div>
-                
-                {shipmentData.raw_data?.date_created && (
-                  <div className="text-xs text-muted-foreground pt-2 border-t">
-                    Última atualização ML: {formatBRT(shipmentData.raw_data.date_created)}
-                  </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="Ex: 1234567890, MLB1234567890"
+                  value={inputId}
+                  onChange={(e) => setInputId(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+              </div>
+              <Button onClick={handleSearch} disabled={isSearching}>
+                {isSearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
                 )}
+                <span className="ml-2">Buscar</span>
+              </Button>
+            </div>
 
-                <div className="pt-4 space-y-3 border-t">
-                  <div>
-                    <Label>Selecione o Motorista</Label>
-                    <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Escolha um motorista" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {driversLoading ? (
-                          <SelectItem value="loading" disabled>Carregando...</SelectItem>
-                        ) : drivers && drivers.length > 0 ? (
-                          drivers.map((driver) => (
-                            <SelectItem key={driver.id} value={driver.id}>
-                              {driver.name} - {driver.phone}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="none" disabled>
-                            Nenhum motorista ativo
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button 
-                    className="w-full" 
-                    onClick={handleLink}
-                    disabled={isLinking || !selectedDriver}
-                  >
-                    {isLinking ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <LinkIcon className="h-4 w-4" />
+            {shipmentData && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Envio Encontrado</span>
+                    <StatusBadge 
+                      status={shipmentData.status} 
+                      substatus={shipmentData.substatus}
+                    />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="font-semibold">Shipment ID:</p>
+                      <p className="text-muted-foreground font-mono">{shipmentData.shipment_id}</p>
+                    </div>
+                    {shipmentData.order_id && (
+                      <div>
+                        <p className="font-semibold">Order ID:</p>
+                        <p className="text-muted-foreground font-mono">{shipmentData.order_id}</p>
+                      </div>
                     )}
-                    <span className="ml-2">Vincular ao Motorista</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                    {shipmentData.pack_id && (
+                      <div>
+                        <p className="font-semibold">Pack ID:</p>
+                        <p className="text-muted-foreground font-mono">{shipmentData.pack_id}</p>
+                      </div>
+                    )}
+                    {shipmentData.tracking_number && (
+                      <div>
+                        <p className="font-semibold">Rastreamento:</p>
+                        <p className="text-muted-foreground font-mono">{shipmentData.tracking_number}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {shipmentData.raw_data?.date_created && (
+                    <div className="text-xs text-muted-foreground pt-2 border-t">
+                      Última atualização ML: {formatBRT(shipmentData.raw_data.date_created)}
+                    </div>
+                  )}
+
+                  <div className="pt-4 space-y-3 border-t">
+                    <div>
+                      <Label>Selecione o Motorista</Label>
+                      <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Escolha um motorista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {driversLoading ? (
+                            <SelectItem value="loading" disabled>Carregando...</SelectItem>
+                          ) : drivers && drivers.length > 0 ? (
+                            drivers.map((driver) => (
+                              <SelectItem key={driver.id} value={driver.id}>
+                                {driver.name} - {driver.phone}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="none" disabled>
+                              Nenhum motorista ativo
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button 
+                      className="w-full" 
+                      onClick={handleLink}
+                      disabled={isLinking || !selectedDriver}
+                    >
+                      {isLinking ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <LinkIcon className="h-4 w-4" />
+                      )}
+                      <span className="ml-2">Vincular ao Motorista</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
   );
 }

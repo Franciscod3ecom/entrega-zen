@@ -73,6 +73,7 @@ export type Database = {
           id: string
           note: string | null
           returned_at: string | null
+          scanned_at: string | null
           shipment_id: string
         }
         Insert: {
@@ -82,6 +83,7 @@ export type Database = {
           id?: string
           note?: string | null
           returned_at?: string | null
+          scanned_at?: string | null
           shipment_id: string
         }
         Update: {
@@ -91,6 +93,7 @@ export type Database = {
           id?: string
           note?: string | null
           returned_at?: string | null
+          scanned_at?: string | null
           shipment_id?: string
         }
         Relationships: [
@@ -339,6 +342,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "reconciliation_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scan_logs: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          resolved_from: string | null
+          scanned_at: string
+          scanned_code: string
+          shipment_id: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          resolved_from?: string | null
+          scanned_at?: string
+          scanned_code: string
+          shipment_id: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          resolved_from?: string | null
+          scanned_at?: string
+          scanned_code?: string
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_logs_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,6 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Loader2, RefreshCw, CheckCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -24,6 +27,7 @@ export default function Pendencias() {
           id,
           shipment_id,
           assigned_at,
+          scanned_at,
           note,
           drivers (
             name,
@@ -104,16 +108,17 @@ export default function Pendencias() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <Layout>
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <Layout>
+      <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Pendências por Motorista</h1>
         <p className="text-muted-foreground">
@@ -141,9 +146,9 @@ export default function Pendencias() {
                   <TableRow>
                     <TableHead>Motorista</TableHead>
                     <TableHead>Shipment ID</TableHead>
-                    <TableHead>Status Atual</TableHead>
-                    <TableHead>Última Atualização ML</TableHead>
-                    <TableHead>Atribuído em</TableHead>
+                    <TableHead>Status ML</TableHead>
+                    <TableHead>Vinculado em</TableHead>
+                    <TableHead>Escaneado em</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -162,30 +167,43 @@ export default function Pendencias() {
                       </TableCell>
                       <TableCell>
                         {pendencia.shipments_cache ? (
-                          <StatusBadge
-                            status={pendencia.shipments_cache.status}
-                            substatus={pendencia.shipments_cache.substatus}
-                          />
+                          <div className="space-y-1">
+                            <StatusBadge
+                              status={pendencia.shipments_cache.status}
+                              substatus={pendencia.shipments_cache.substatus}
+                            />
+                            {pendencia.shipments_cache.last_ml_update && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(new Date(pendencia.shipments_cache.last_ml_update), {
+                                  addSuffix: true,
+                                  locale: ptBR
+                                })}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">
-                            Não cacheado
+                            Sem cache
                           </span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {pendencia.shipments_cache?.last_ml_update ? (
+                        {formatBRT(pendencia.assigned_at)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {pendencia.scanned_at ? (
                           <div>
-                            <div>{formatBRT(pendencia.shipments_cache.last_ml_update)}</div>
+                            <div>{formatBRT(pendencia.scanned_at)}</div>
                             <div className="text-xs text-muted-foreground">
-                              Atualizado há {Math.round((Date.now() - new Date(pendencia.shipments_cache.last_ml_update).getTime()) / 60000)} min
+                              {formatDistanceToNow(new Date(pendencia.scanned_at), {
+                                addSuffix: true,
+                                locale: ptBR
+                              })}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">Sem cache</span>
+                          <span className="text-muted-foreground">Não escaneado</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatBRT(pendencia.assigned_at)}
                       </TableCell>
                        <TableCell className="text-right space-x-2">
                         <Button
@@ -224,6 +242,7 @@ export default function Pendencias() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Layout>
   );
 }
