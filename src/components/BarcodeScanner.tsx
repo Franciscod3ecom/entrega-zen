@@ -124,7 +124,7 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
       
       {/* Overlay de guia */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="relative border-4 border-primary rounded-lg w-3/4 h-1/2 shadow-lg">
+        <div className="relative border-4 border-primary rounded-lg w-64 aspect-square shadow-lg">
           <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
           <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
           <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
