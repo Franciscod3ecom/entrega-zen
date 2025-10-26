@@ -12,11 +12,12 @@ import Layout from "@/components/Layout";
 
 export default function ConfigML() {
   const [isLoading, setIsLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionInfo, setConnectionInfo] = useState<any>(null);
+  const [mlAccounts, setMlAccounts] = useState<any[]>([]);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const { currentTenant } = useTenant();
+
+  const MAX_ML_ACCOUNTS = 5;
 
   useEffect(() => {
     checkConnection();
@@ -50,19 +51,11 @@ export default function ConfigML() {
         .from('ml_accounts')
         .select('*')
         .eq('tenant_id', currentTenant.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      if (data) {
-        setIsConnected(true);
-        setConnectionInfo(data);
-      } else {
-        setIsConnected(false);
-        setConnectionInfo(null);
-      }
+      setMlAccounts(data || []);
     } catch (error: any) {
       console.error('Erro ao verificar conexão:', error);
     }
@@ -78,6 +71,15 @@ export default function ConfigML() {
       return;
     }
 
+    if (mlAccounts.length >= MAX_ML_ACCOUNTS) {
+      toast({
+        title: "Limite atingido",
+        description: `Você já possui ${MAX_ML_ACCOUNTS} contas conectadas. Remova uma conta antes de adicionar outra.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -88,7 +90,6 @@ export default function ConfigML() {
       if (error) throw error;
 
       if (data?.authorization_url) {
-        // Redirecionar para autorização do ML
         window.location.href = data.authorization_url;
       } else {
         throw new Error('URL de autorização não recebida');
@@ -104,6 +105,32 @@ export default function ConfigML() {
     }
   };
 
+  const handleRemoveAccount = async (accountId: string) => {
+    try {
+      const { error } = await supabase
+        .from('ml_accounts')
+        .delete()
+        .eq('id', accountId)
+        .eq('tenant_id', currentTenant?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Conta do Mercado Livre removida",
+      });
+      
+      checkConnection();
+    } catch (error: any) {
+      console.error('Erro ao remover conta:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao remover conta",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -114,56 +141,72 @@ export default function ConfigML() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Status da Conexão</CardTitle>
-              <CardDescription>
-                Verificação da integração com o Mercado Livre
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isConnected ? (
-                <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800 dark:text-green-200">
-                    <strong>Conectado com sucesso!</strong>
-                    <div className="mt-2 space-y-1 text-sm">
-                      <p>Vendedor: {connectionInfo?.nickname}</p>
-                      <p>Site: {connectionInfo?.site_id}</p>
-                      <p>ML User ID: {connectionInfo?.ml_user_id}</p>
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Contas Conectadas ({mlAccounts.length}/{MAX_ML_ACCOUNTS})</CardTitle>
+            <CardDescription>
+              Gerencie suas contas do Mercado Livre
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mlAccounts.length === 0 ? (
+              <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
+                <AlertCircle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800 dark:text-orange-200">
+                  <strong>Nenhuma conta conectada</strong>
+                  <p className="mt-1 text-sm">
+                    Você precisa conectar uma conta do Mercado Livre para usar as integrações.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-3">
+                {mlAccounts.map((account) => (
+                  <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="font-medium">{account.nickname}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Site: {account.site_id} • ML ID: {account.ml_user_id}
+                        </p>
+                      </div>
                     </div>
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                  <AlertDescription className="text-orange-800 dark:text-orange-200">
-                    <strong>Não conectado</strong>
-                    <p className="mt-1 text-sm">
-                      Você precisa conectar sua conta do Mercado Livre para usar as integrações.
-                    </p>
-                  </AlertDescription>
-                </Alert>
-              )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleRemoveAccount(account.id)}
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-              <Button
-                className="w-full"
-                onClick={handleConnect}
-                disabled={isLoading}
-                variant={isConnected ? "outline" : "default"}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ExternalLink className="h-4 w-4" />
-                )}
-                <span className="ml-2">
-                  {isConnected ? 'Reconectar' : 'Conectar com Mercado Livre'}
-                </span>
-              </Button>
-            </CardContent>
-          </Card>
+            <Button
+              className="w-full"
+              onClick={handleConnect}
+              disabled={isLoading || mlAccounts.length >= MAX_ML_ACCOUNTS}
+              variant={mlAccounts.length > 0 ? "outline" : "default"}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ExternalLink className="h-4 w-4" />
+              )}
+              <span className="ml-2">
+                {mlAccounts.length >= MAX_ML_ACCOUNTS 
+                  ? `Limite de ${MAX_ML_ACCOUNTS} contas atingido`
+                  : mlAccounts.length > 0 
+                    ? 'Adicionar outra conta' 
+                    : 'Conectar com Mercado Livre'}
+              </span>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6 md:grid-cols-2">
 
           <Card>
             <CardHeader>
