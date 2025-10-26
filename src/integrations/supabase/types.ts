@@ -71,6 +71,7 @@ export type Database = {
           created_at: string
           driver_id: string
           id: string
+          ml_account_id: string | null
           note: string | null
           returned_at: string | null
           scanned_at: string | null
@@ -82,6 +83,7 @@ export type Database = {
           created_at?: string
           driver_id: string
           id?: string
+          ml_account_id?: string | null
           note?: string | null
           returned_at?: string | null
           scanned_at?: string | null
@@ -93,6 +95,7 @@ export type Database = {
           created_at?: string
           driver_id?: string
           id?: string
+          ml_account_id?: string | null
           note?: string | null
           returned_at?: string | null
           scanned_at?: string | null
@@ -105,6 +108,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_assignments_ml_account_id_fkey"
+            columns: ["ml_account_id"]
+            isOneToOne: false
+            referencedRelation: "ml_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -281,6 +291,7 @@ export type Database = {
           id: string
           ml_user_id: number
           nickname: string | null
+          owner_user_id: string | null
           refresh_token: string
           site_id: string
           tenant_id: string
@@ -293,6 +304,7 @@ export type Database = {
           id?: string
           ml_user_id: number
           nickname?: string | null
+          owner_user_id?: string | null
           refresh_token: string
           site_id: string
           tenant_id: string
@@ -305,6 +317,7 @@ export type Database = {
           id?: string
           ml_user_id?: number
           nickname?: string | null
+          owner_user_id?: string | null
           refresh_token?: string
           site_id?: string
           tenant_id?: string
@@ -461,6 +474,7 @@ export type Database = {
           created_at: string
           driver_id: string
           id: string
+          ml_account_id: string | null
           resolved_from: string | null
           scanned_at: string
           scanned_code: string
@@ -471,6 +485,7 @@ export type Database = {
           created_at?: string
           driver_id: string
           id?: string
+          ml_account_id?: string | null
           resolved_from?: string | null
           scanned_at?: string
           scanned_code: string
@@ -481,6 +496,7 @@ export type Database = {
           created_at?: string
           driver_id?: string
           id?: string
+          ml_account_id?: string | null
           resolved_from?: string | null
           scanned_at?: string
           scanned_code?: string
@@ -493,6 +509,13 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_logs_ml_account_id_fkey"
+            columns: ["ml_account_id"]
+            isOneToOne: false
+            referencedRelation: "ml_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -594,6 +617,7 @@ export type Database = {
         Row: {
           created_at: string
           last_ml_update: string
+          ml_account_id: string | null
           order_id: string | null
           pack_id: string | null
           raw_data: Json | null
@@ -606,6 +630,7 @@ export type Database = {
         Insert: {
           created_at?: string
           last_ml_update?: string
+          ml_account_id?: string | null
           order_id?: string | null
           pack_id?: string | null
           raw_data?: Json | null
@@ -618,6 +643,7 @@ export type Database = {
         Update: {
           created_at?: string
           last_ml_update?: string
+          ml_account_id?: string | null
           order_id?: string | null
           pack_id?: string | null
           raw_data?: Json | null
@@ -628,6 +654,13 @@ export type Database = {
           tracking_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shipments_cache_ml_account_id_fkey"
+            columns: ["ml_account_id"]
+            isOneToOne: false
+            referencedRelation: "ml_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shipments_cache_tenant_id_fkey"
             columns: ["tenant_id"]
