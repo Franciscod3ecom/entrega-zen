@@ -110,7 +110,9 @@ serve(async (req) => {
     console.log('Conta ML salva com sucesso no banco para tenant:', state.tenant_id);
 
     // Redirecionar para página de sucesso
-    const redirectUrl = `${url.origin}/dashboard?ml_connected=true`;
+    // Usar a URL do frontend configurada ou construir dinamicamente
+    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ae36497b-ab18-4e78-bc0b-f6436f4288a0.lovableproject.com';
+    const redirectUrl = `${frontendUrl}/config-ml?ml_connected=true`;
     
     return new Response(null, {
       status: 302,
@@ -122,8 +124,8 @@ serve(async (req) => {
     console.error('Erro em meli-callback:', error);
     
     // Redirecionar para página de erro
-    const url = new URL(req.url);
-    const errorUrl = `${url.origin}/dashboard?ml_error=${encodeURIComponent(error.message)}`;
+    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ae36497b-ab18-4e78-bc0b-f6436f4288a0.lovableproject.com';
+    const errorUrl = `${frontendUrl}/config-ml?ml_error=${encodeURIComponent(error.message)}`;
     
     return new Response(null, {
       status: 302,
