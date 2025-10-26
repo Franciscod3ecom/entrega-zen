@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import {
   Table,
   TableBody,
@@ -19,9 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Package, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Search, Package, RefreshCw, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatBRT } from "@/lib/date-utils";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Shipment {
   shipment_id: number;
@@ -38,6 +41,7 @@ export default function Envios() {
   const [filteredShipments, setFilteredShipments] = useState<Shipment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [refreshingId, setRefreshingId] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -84,31 +88,25 @@ export default function Envios() {
     setFilteredShipments(filtered);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "delivered":
-        return (
-          <Badge className="bg-success text-success-foreground">
-            <CheckCircle className="mr-1 h-3 w-3" />
-            Entregue
-          </Badge>
-        );
-      case "not_delivered":
-        return (
-          <Badge className="bg-danger text-danger-foreground">
-            <XCircle className="mr-1 h-3 w-3" />
-            Não Entregue
-          </Badge>
-        );
-      case "in_transit":
-        return (
-          <Badge className="bg-secondary text-secondary-foreground">
-            <Clock className="mr-1 h-3 w-3" />
-            Em Rota
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const handleRefresh = async (shipmentId: number) => {
+    setRefreshingId(shipmentId);
+
+    try {
+      const { error } = await supabase.functions.invoke('refresh-shipment', {
+        body: { shipment_id: String(shipmentId) },
+      });
+
+      if (error) throw error;
+
+      // Recarregar dados
+      await loadShipments();
+
+      toast.success("Status atualizado com sucesso!");
+    } catch (error: any) {
+      console.error('Erro ao atualizar:', error);
+      toast.error(error.message || "Erro ao atualizar status");
+    } finally {
+      setRefreshingId(null);
     }
   };
 
@@ -149,12 +147,12 @@ export default function Envios() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID Envio</TableHead>
+                <TableHead>Shipment ID</TableHead>
                 <TableHead>Pedido</TableHead>
                 <TableHead>Rastreio</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Substatus</TableHead>
                 <TableHead>Última Atualização</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -172,27 +170,47 @@ export default function Envios() {
               ) : (
                 filteredShipments.map((shipment) => (
                   <TableRow key={shipment.shipment_id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-mono font-medium">
                       #{shipment.shipment_id}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="font-mono">
                       {shipment.order_id ? `#${shipment.order_id}` : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="font-mono text-sm">
                       {shipment.tracking_number || "-"}
                     </TableCell>
-                    <TableCell>{getStatusBadge(shipment.status)}</TableCell>
                     <TableCell>
-                      {shipment.substatus || "-"}
+                      <StatusBadge 
+                        status={shipment.status} 
+                        substatus={shipment.substatus}
+                      />
                     </TableCell>
-                    <TableCell>
-                      {new Date(shipment.last_update).toLocaleDateString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                    <TableCell className="text-sm">
+                      <div>
+                        <div>{formatBRT(shipment.last_update)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(shipment.last_update), {
+                            addSuffix: true,
+                            locale: ptBR
+                          })}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRefresh(shipment.shipment_id)}
+                        disabled={refreshingId === shipment.shipment_id}
+                        title="Atualizar status agora"
+                      >
+                        {refreshingId === shipment.shipment_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        <span className="ml-1 hidden sm:inline">Atualizar</span>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

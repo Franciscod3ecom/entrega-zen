@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface StatusBadgeProps {
   status: string;
@@ -6,18 +6,18 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, substatus }: StatusBadgeProps) {
-  const getVariant = (status: string) => {
+  const getColorClasses = (status: string) => {
     switch (status.toLowerCase()) {
       case 'delivered':
-        return 'default' as const;
+        return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-200 dark:border-green-800';
       case 'in_transit':
       case 'ready_to_ship':
-        return 'secondary' as const;
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-200 dark:border-yellow-800';
       case 'not_delivered':
       case 'cancelled':
-        return 'destructive' as const;
+        return 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-800';
       default:
-        return 'outline' as const;
+        return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700';
     }
   };
 
@@ -36,9 +36,9 @@ export function StatusBadge({ status, substatus }: StatusBadgeProps) {
 
   return (
     <div className="flex flex-col gap-1">
-      <Badge variant={getVariant(status)}>
+      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${getColorClasses(status)}`}>
         {getStatusLabel(status)}
-      </Badge>
+      </span>
       {substatus && (
         <span className="text-xs text-muted-foreground">
           {substatus}

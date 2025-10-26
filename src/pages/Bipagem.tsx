@@ -63,25 +63,37 @@ export default function Bipagem() {
       return;
     }
 
+    // Extrair shipment_id do código (pode ser QR com URL ou número direto)
+    let shipmentId = code.trim();
+    
+    // Se for URL/QR com path, extrair o ID
+    const urlMatch = code.match(/shipments?[\/:](\d+)/i);
+    if (urlMatch) {
+      shipmentId = urlMatch[1];
+    }
+
     setLastScanned(code);
     setLastScanTime(now);
     setIsProcessing(true);
 
     try {
-      // Chamar edge function para resolver e vincular
+      // Chamar edge function para validar e vincular
       const { data, error } = await supabase.functions.invoke('scan-bind', {
         body: { 
           driver_id: selectedDriver, 
-          code: code.trim(),
-          source 
+          shipment_id: shipmentId,
         },
       });
 
       if (error) throw error;
 
-      // Adicionar ao histórico
+      if (!data.success) {
+        throw new Error(data.error || 'Erro desconhecido');
+      }
+
+      // Adicionar ao histórico com sucesso
       const scannedItem: ScannedItem = {
-        code: code,
+        code: shipmentId,
         shipment_id: data.shipment_id,
         status: data.status,
         substatus: data.substatus,
@@ -93,7 +105,7 @@ export default function Bipagem() {
 
       toast({
         title: "✅ Vinculado!",
-        description: `Shipment ${data.shipment_id} vinculado ao motorista`,
+        description: `Pacote ${data.shipment_id} vinculado com sucesso`,
       });
 
       // Limpar campo manual
@@ -101,16 +113,23 @@ export default function Bipagem() {
         setManualCode("");
       }
 
-      // Bipe de sucesso (se suportado)
+      // Feedback sonoro/vibrátil de sucesso
       if ('vibrate' in navigator) {
         navigator.vibrate(100);
       }
+      
+      // Tentar tocar som de sucesso (se suportado)
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuFz/PKfCkFJ3fH7+CWQQ0VYLXn7bNgGAc8ktjxz3gqBSl7y/DNfy4FKHbH7+KQQwwWYbPp6K1aFws+ltPuzXkpBCp6y/DMfC0FJ3XG7uGPQw0WY7Tk6bJdGAY6ktfxz3kqBSl7y/DOfS0FKHbH7uKQQwwWYrTl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9Xt');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch {}
 
     } catch (error: any) {
       console.error('Erro ao processar código:', error);
       
       const failedItem: ScannedItem = {
-        code: code,
+        code: shipmentId,
         shipment_id: '',
         status: 'error',
         timestamp: new Date().toISOString(),
@@ -119,15 +138,20 @@ export default function Bipagem() {
 
       setScannedItems(prev => [failedItem, ...prev.slice(0, 9)]);
 
+      // Mensagem de erro mais clara
+      const errorMsg = error.message?.includes('não encontrado') || error.message?.includes('não corresponde')
+        ? `Não encontrei este envio (${shipmentId}) no ML. Verifique a etiqueta.`
+        : error.message || "Não foi possível vincular o código";
+
       toast({
-        title: "❌ Erro",
-        description: error.message || "Não foi possível vincular o código",
+        title: "❌ Erro ao vincular",
+        description: errorMsg,
         variant: "destructive",
       });
 
-      // Bipe de erro
+      // Feedback de erro
       if ('vibrate' in navigator) {
-        navigator.vibrate([50, 50, 50]);
+        navigator.vibrate([100, 50, 100]);
       }
     } finally {
       setIsProcessing(false);
@@ -246,13 +270,21 @@ export default function Bipagem() {
 
               {/* Status de processamento */}
               {isProcessing && (
-                <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
+                <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
                   <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                   <AlertDescription className="text-blue-800 dark:text-blue-200">
-                    Processando código...
+                    Validando shipment no Mercado Livre...
                   </AlertDescription>
                 </Alert>
               )}
+
+              {/* Dica sobre QR */}
+              <Alert className="border-primary/30 bg-primary/5">
+                <AlertDescription className="text-sm">
+                  <strong>💡 Dica:</strong> O QR da etiqueta já contém o <strong>Shipment ID</strong>. 
+                  Basta escanear para vincular automaticamente.
+                </AlertDescription>
+              </Alert>
 
               {/* Entrada Manual */}
               <div className="pt-4 border-t space-y-3">
@@ -286,7 +318,7 @@ export default function Bipagem() {
             <CardHeader>
               <CardTitle>Histórico da Sessão</CardTitle>
               <CardDescription>
-                Últimos {scannedItems.length} códigos processados
+                Últimos {scannedItems.length} pacotes escaneados nesta sessão
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -294,10 +326,10 @@ export default function Bipagem() {
                 {scannedItems.map((item, idx) => (
                   <div
                     key={`${item.code}-${idx}`}
-                    className={`p-3 rounded-lg border flex items-center justify-between ${
+                    className={`p-3 rounded-lg border flex items-center justify-between transition-all ${
                       item.success 
-                        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
-                        : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 animate-in fade-in slide-in-from-top-2'
+                        : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 animate-in fade-in shake'
                     }`}
                   >
                     <div className="flex-1 space-y-1">
