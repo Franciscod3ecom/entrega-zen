@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     console.log('Iniciando OAuth ML...');
     
-    const authUrl = new URL('https://auth.mercadolibre.com.br/authorization');
+    const authUrl = new URL('https://auth.mercadolivre.com.br/authorization');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', ML_CLIENT_ID);
     authUrl.searchParams.set('redirect_uri', ML_REDIRECT_URI);
