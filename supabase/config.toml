@@ -12,5 +12,8 @@ verify_jwt = false
 [functions.scan-bind]
 verify_jwt = false
 
+[functions.scan-bind-auto]
+verify_jwt = false
+
 [functions.refresh-shipment]
 verify_jwt = false

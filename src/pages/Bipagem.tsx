@@ -23,6 +23,7 @@ interface ScannedItem {
   substatus?: string;
   timestamp: string;
   success: boolean;
+  account_nickname?: string;
 }
 
 export default function Bipagem() {
@@ -67,10 +68,10 @@ export default function Bipagem() {
       return;
     }
 
-    if (!currentTenant || !currentAccount) {
+    if (!currentTenant) {
       toast({
         title: "Erro",
-        description: "Workspace e conta ML não selecionados",
+        description: "Workspace não identificado",
         variant: "destructive",
       });
       return;
@@ -90,13 +91,12 @@ export default function Bipagem() {
     setIsProcessing(true);
 
     try {
-      // Chamar edge function para validar e vincular
-      const { data, error } = await supabase.functions.invoke('scan-bind', {
+      // Chamar edge function para busca automática multi-conta
+      const { data, error } = await supabase.functions.invoke('scan-bind-auto', {
         body: { 
           driver_id: selectedDriver, 
           shipment_id: shipmentId,
           tenant_id: currentTenant.id,
-          ml_user_id: currentAccount.ml_user_id,
         },
       });
 
@@ -114,13 +114,16 @@ export default function Bipagem() {
         substatus: data.substatus,
         timestamp: new Date().toISOString(),
         success: true,
+        account_nickname: data.account_nickname,
       };
 
       setScannedItems(prev => [scannedItem, ...prev.slice(0, 9)]); // Manter últimos 10
 
       toast({
         title: "✅ Vinculado!",
-        description: `Pacote ${data.shipment_id} vinculado com sucesso`,
+        description: data.account_nickname 
+          ? `Pacote ${data.shipment_id} encontrado na conta ${data.account_nickname}`
+          : `Pacote ${data.shipment_id} vinculado com sucesso`,
       });
 
       // Limpar campo manual
@@ -357,6 +360,11 @@ export default function Bipagem() {
                         <span className="font-mono text-sm font-semibold">
                           {item.shipment_id || item.code}
                         </span>
+                        {item.account_nickname && (
+                          <span className="text-xs text-muted-foreground">
+                            ({item.account_nickname})
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {formatBRT(item.timestamp)}
