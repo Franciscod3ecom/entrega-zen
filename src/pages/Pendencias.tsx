@@ -173,25 +173,34 @@ export default function Pendencias() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {pendencia.shipments_cache?.last_ml_update
-                          ? formatBRT(pendencia.shipments_cache.last_ml_update)
-                          : '-'}
+                        {pendencia.shipments_cache?.last_ml_update ? (
+                          <div>
+                            <div>{formatBRT(pendencia.shipments_cache.last_ml_update)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Atualizado há {Math.round((Date.now() - new Date(pendencia.shipments_cache.last_ml_update).getTime()) / 60000)} min
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Sem cache</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">
                         {formatBRT(pendencia.assigned_at)}
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                       <TableCell className="text-right space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleRefresh(pendencia.id, pendencia.shipment_id)}
                           disabled={refreshingId === pendencia.id}
+                          title="Atualizar status agora"
                         >
                           {refreshingId === pendencia.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <RefreshCw className="h-4 w-4" />
                           )}
+                          <span className="ml-1 hidden sm:inline">Atualizar</span>
                         </Button>
                         <Button
                           variant="default"

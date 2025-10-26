@@ -139,6 +139,11 @@ export default function VincularVenda() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-900 dark:text-blue-100">
+            <p className="font-semibold mb-1">💡 Dica importante:</p>
+            <p>Se a compra foi um <strong>carrinho</strong> (múltiplos produtos), informe o <strong>Pack ID</strong>. Um pack pode conter vários pedidos mas geralmente tem um único envio.</p>
+          </div>
+
           <div className="flex gap-2">
             <div className="flex-1">
               <Input
@@ -169,33 +174,39 @@ export default function VincularVenda() {
                   />
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="font-semibold">Shipment ID:</p>
-                    <p className="text-muted-foreground">{shipmentData.shipment_id}</p>
+                    <p className="text-muted-foreground font-mono">{shipmentData.shipment_id}</p>
                   </div>
                   {shipmentData.order_id && (
                     <div>
                       <p className="font-semibold">Order ID:</p>
-                      <p className="text-muted-foreground">{shipmentData.order_id}</p>
+                      <p className="text-muted-foreground font-mono">{shipmentData.order_id}</p>
                     </div>
                   )}
                   {shipmentData.pack_id && (
                     <div>
                       <p className="font-semibold">Pack ID:</p>
-                      <p className="text-muted-foreground">{shipmentData.pack_id}</p>
+                      <p className="text-muted-foreground font-mono">{shipmentData.pack_id}</p>
                     </div>
                   )}
                   {shipmentData.tracking_number && (
                     <div>
                       <p className="font-semibold">Rastreamento:</p>
-                      <p className="text-muted-foreground">{shipmentData.tracking_number}</p>
+                      <p className="text-muted-foreground font-mono">{shipmentData.tracking_number}</p>
                     </div>
                   )}
                 </div>
+                
+                {shipmentData.raw_data?.date_created && (
+                  <div className="text-xs text-muted-foreground pt-2 border-t">
+                    Última atualização ML: {formatBRT(shipmentData.raw_data.date_created)}
+                  </div>
+                )}
 
-                <div className="pt-4 space-y-3">
+                <div className="pt-4 space-y-3 border-t">
                   <div>
                     <Label>Selecione o Motorista</Label>
                     <Select value={selectedDriver} onValueChange={setSelectedDriver}>
