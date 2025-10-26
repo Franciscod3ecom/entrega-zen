@@ -120,7 +120,6 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
       <video
         ref={videoRef}
         className="w-full h-full object-cover rounded-lg"
-        style={{ transform: 'scaleX(-1)' }}
       />
       
       {/* Overlay de guia */}
@@ -136,7 +135,7 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
       {/* Instrução */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
         <span className="bg-black/70 text-white px-4 py-2 rounded-full text-sm">
-          Posicione o código de barras no centro
+          Posicione o QR Code no centro
         </span>
       </div>
     </div>
