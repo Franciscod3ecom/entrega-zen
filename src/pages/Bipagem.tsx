@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
 import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { useTenant } from "@/contexts/TenantContext";
@@ -27,7 +28,7 @@ interface ScannedItem {
 }
 
 export default function Bipagem() {
-  const { currentTenant } = useTenant();
+  const { currentTenant, loading: tenantLoading } = useTenant();
   const { currentAccount } = useMLAccount();
   const [selectedDriver, setSelectedDriver] = useState("");
   const [manualCode, setManualCode] = useState("");
@@ -53,6 +54,24 @@ export default function Bipagem() {
   });
 
   const processCode = async (code: string, source: 'scanner' | 'manual' = 'scanner') => {
+    // Validar loading do tenant
+    if (tenantLoading) {
+      toast({
+        title: "Aguarde",
+        description: "Carregando workspace...",
+      });
+      return;
+    }
+
+    if (!currentTenant) {
+      toast({
+        title: "Erro",
+        description: "Workspace não identificado. Tente recarregar a página.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Debounce: evitar duplicados em <2s
     const now = Date.now();
     if (code === lastScanned && now - lastScanTime < 2000) {
@@ -63,15 +82,6 @@ export default function Bipagem() {
       toast({
         title: "Erro",
         description: "Selecione um motorista primeiro",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!currentTenant) {
-      toast({
-        title: "Erro",
-        description: "Workspace não identificado",
         variant: "destructive",
       });
       return;
@@ -194,6 +204,52 @@ export default function Bipagem() {
 
   const selectedDriverData = drivers?.find(d => d.id === selectedDriver);
 
+  // Loading state
+  if (tenantLoading) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Bipagem de Pacotes</h1>
+            <p className="text-muted-foreground">
+              Escaneie etiquetas para vincular automaticamente ao motorista
+            </p>
+          </div>
+          <Card>
+            <CardContent className="flex items-center justify-center h-96">
+              <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-muted-foreground">Carregando workspace...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (!currentTenant) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold">Bipagem de Pacotes</h1>
+            <p className="text-muted-foreground">
+              Escaneie etiquetas para vincular automaticamente ao motorista
+            </p>
+          </div>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Erro ao carregar workspace. Tente fazer logout e login novamente.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -270,6 +326,7 @@ export default function Bipagem() {
                   onClick={() => setIsScanning(!isScanning)}
                   variant={isScanning ? "destructive" : "default"}
                   className="flex-1"
+                  disabled={tenantLoading || !selectedDriver}
                 >
                   <Scan className="h-4 w-4 mr-2" />
                   {isScanning ? 'Parar Scanner' : 'Iniciar Scanner'}
@@ -320,7 +377,7 @@ export default function Bipagem() {
                   />
                   <Button 
                     onClick={handleManualSubmit}
-                    disabled={isProcessing || !manualCode.trim()}
+                    disabled={tenantLoading || isProcessing || !manualCode.trim()}
                   >
                     Vincular
                   </Button>

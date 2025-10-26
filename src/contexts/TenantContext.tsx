@@ -19,7 +19,11 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const [currentTenant, setCurrentTenantState] = useState<Tenant | null>(null);
+  const [currentTenant, setCurrentTenantState] = useState<Tenant | null>(() => {
+    // Tentar restaurar do cache imediatamente
+    const cached = localStorage.getItem('currentTenant');
+    return cached ? JSON.parse(cached) : null;
+  });
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -84,6 +88,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         setTenants([userTenant]);
         setCurrentTenantState(userTenant);
         localStorage.setItem('currentTenantId', userTenant.id);
+        localStorage.setItem('currentTenant', JSON.stringify(userTenant));
       }
     } catch (error) {
       console.error('Erro ao carregar tenant:', error);
@@ -95,6 +100,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const setCurrentTenant = (tenant: Tenant) => {
     setCurrentTenantState(tenant);
     localStorage.setItem('currentTenantId', tenant.id);
+    localStorage.setItem('currentTenant', JSON.stringify(tenant));
   };
 
   const refreshTenants = async () => {
