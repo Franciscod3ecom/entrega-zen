@@ -1,0 +1,100 @@
+import { ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Package, Truck, LayoutDashboard, LogOut, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface LayoutProps {
+  children: ReactNode;
+}
+
+export default function Layout({ children }: LayoutProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Erro ao sair");
+    } else {
+      navigate("/auth");
+    }
+  };
+
+  const NavLinks = () => (
+    <>
+      <Link to="/dashboard">
+        <Button
+          variant={location.pathname === "/dashboard" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <LayoutDashboard className="mr-2 h-4 w-4" />
+          Dashboard
+        </Button>
+      </Link>
+      <Link to="/envios">
+        <Button
+          variant={location.pathname === "/envios" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <Package className="mr-2 h-4 w-4" />
+          Envios
+        </Button>
+      </Link>
+      <Link to="/motoristas">
+        <Button
+          variant={location.pathname === "/motoristas" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <Truck className="mr-2 h-4 w-4" />
+          Motoristas
+        </Button>
+      </Link>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-40 w-full border-b bg-card shadow-sm">
+        <div className="container flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            <Sheet>
+              <SheetTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-4">
+                <div className="flex flex-col gap-2">
+                  <NavLinks />
+                </div>
+              </SheetContent>
+            </Sheet>
+            <Link to="/dashboard" className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary">
+                <Package className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <span className="text-xl font-bold">RASTREIO_FLEX</span>
+            </Link>
+          </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-5 w-5" />
+          </Button>
+        </div>
+      </header>
+
+      <div className="container flex px-4 py-6">
+        {/* Sidebar Desktop */}
+        <aside className="hidden w-64 flex-col gap-2 pr-6 md:flex">
+          <NavLinks />
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1">{children}</main>
+      </div>
+    </div>
+  );
+}
