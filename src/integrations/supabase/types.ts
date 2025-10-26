@@ -65,6 +65,44 @@ export type Database = {
           },
         ]
       }
+      driver_assignments: {
+        Row: {
+          assigned_at: string
+          created_at: string
+          driver_id: string
+          id: string
+          note: string | null
+          returned_at: string | null
+          shipment_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          created_at?: string
+          driver_id: string
+          id?: string
+          note?: string | null
+          returned_at?: string | null
+          shipment_id: string
+        }
+        Update: {
+          assigned_at?: string
+          created_at?: string
+          driver_id?: string
+          id?: string
+          note?: string | null
+          returned_at?: string | null
+          shipment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_load_items: {
         Row: {
           created_at: string
@@ -182,6 +220,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ml_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          refresh_token: string
+          seller_nickname: string | null
+          site_id: string
+          updated_at: string
+          user_id: number
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          refresh_token: string
+          seller_nickname?: string | null
+          site_id: string
+          updated_at?: string
+          user_id: number
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          seller_nickname?: string | null
+          site_id?: string
+          updated_at?: string
+          user_id?: number
+        }
+        Relationships: []
       }
       orders: {
         Row: {
@@ -347,6 +421,42 @@ export type Database = {
             referencedColumns: ["order_id"]
           },
         ]
+      }
+      shipments_cache: {
+        Row: {
+          created_at: string
+          last_ml_update: string
+          order_id: string | null
+          pack_id: string | null
+          raw_data: Json | null
+          shipment_id: string
+          status: string
+          substatus: string | null
+          tracking_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          last_ml_update?: string
+          order_id?: string | null
+          pack_id?: string | null
+          raw_data?: Json | null
+          shipment_id: string
+          status: string
+          substatus?: string | null
+          tracking_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          last_ml_update?: string
+          order_id?: string | null
+          pack_id?: string | null
+          raw_data?: Json | null
+          shipment_id?: string
+          status?: string
+          substatus?: string | null
+          tracking_number?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

@@ -7,6 +7,9 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
 import Motoristas from "./pages/Motoristas";
+import VincularVenda from "./pages/VincularVenda";
+import Pendencias from "./pages/Pendencias";
+import ConfigML from "./pages/ConfigML";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +26,9 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/envios" element={<Envios />} />
           <Route path="/motoristas" element={<Motoristas />} />
+          <Route path="/vincular" element={<VincularVenda />} />
+          <Route path="/pendencias" element={<Pendencias />} />
+          <Route path="/config-ml" element={<ConfigML />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
