@@ -1,7 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ML_CLIENT_ID = Deno.env.get('ML_CLIENT_ID')!;
 const ML_REDIRECT_URI = Deno.env.get('ML_REDIRECT_URI')!;
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,26 +29,36 @@ serve(async (req) => {
     
     console.log('ML_REDIRECT_URI configurado:', ML_REDIRECT_URI);
     
-    // Obter tenant_id do body
-    const { tenant_id } = await req.json();
+    // Obter usuário autenticado
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
     
-    if (!tenant_id) {
-      console.error('ERRO: tenant_id não fornecido no body');
-      throw new Error('tenant_id é obrigatório');
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !user) {
+      console.error('ERRO: usuário não autenticado', userErr);
+      return new Response(
+        JSON.stringify({ error: 'Não autenticado' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
     }
     
-    console.log('tenant_id recebido:', tenant_id);
+    console.log('Usuário autenticado:', user.id);
     
-    // Criar state com tenant_id e nonce para segurança
+    // Criar state com owner_user_id e nonce para segurança
     const stateData = {
-      tenant_id,
+      owner_user_id: user.id,
       nonce: crypto.randomUUID(),
       exp: Date.now() + 10 * 60 * 1000, // 10 minutos
     };
     const state = btoa(JSON.stringify(stateData));
     
     console.log('State gerado:', {
-      tenant_id: stateData.tenant_id,
+      owner_user_id: stateData.owner_user_id,
       nonce: stateData.nonce,
       expira_em: new Date(stateData.exp).toISOString()
     });

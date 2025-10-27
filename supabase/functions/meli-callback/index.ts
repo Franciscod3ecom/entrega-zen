@@ -37,10 +37,10 @@ serve(async (req) => {
     }
 
     // Validar state
-    let state;
+    let state: any;
     try {
       state = JSON.parse(atob(stateParam));
-      if (!state.tenant_id || !state.nonce) {
+      if (!state.owner_user_id || !state.nonce) {
         throw new Error('State inválido');
       }
       if (Date.now() > state.exp) {
@@ -51,7 +51,7 @@ serve(async (req) => {
       throw new Error('State inválido ou expirado');
     }
 
-    console.log('Callback recebido com code:', code.substring(0, 10) + '...', 'tenant_id:', state.tenant_id);
+    console.log('Callback recebido com code:', code.substring(0, 10) + '...', 'owner_user_id:', state.owner_user_id);
 
     // Trocar code por access_token
     const tokenResponse = await fetch('https://api.mercadolibre.com/oauth/token', {
@@ -69,9 +69,9 @@ serve(async (req) => {
     });
 
     if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      console.error('Erro ao trocar code por token:', error);
-      throw new Error(`Erro ao obter token: ${error}`);
+      const errText = await tokenResponse.text();
+      console.error('Erro ao trocar code por token:', errText);
+      throw new Error(`Erro ao obter token: ${errText}`);
     }
 
     const tokenData = await tokenResponse.json();
@@ -91,32 +91,23 @@ serve(async (req) => {
     const userData = await userResponse.json();
     console.log('Dados do usuário obtidos:', userData.nickname);
 
-    // Salvar tokens no banco com tenant_id e owner_user_id
+    // Salvar tokens no banco com owner_user_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
-    
-    // Buscar owner_user_id do tenant
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('user_id')
-      .eq('tenant_id', state.tenant_id)
-      .limit(1)
-      .single();
 
     const { error: dbError } = await supabase
       .from('ml_accounts')
       .upsert({
-        tenant_id: state.tenant_id,
+        owner_user_id: state.owner_user_id,
         ml_user_id: tokenData.user_id,
-        owner_user_id: membership?.user_id,
         nickname: userData.nickname,
         site_id: userData.site_id,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         expires_at: expiresAt.toISOString(),
       }, {
-        onConflict: 'tenant_id,ml_user_id',
+        onConflict: 'owner_user_id,ml_user_id',
       });
 
     if (dbError) {
@@ -124,10 +115,9 @@ serve(async (req) => {
       throw dbError;
     }
 
-    console.log('Conta ML salva com sucesso no banco para tenant:', state.tenant_id);
+    console.log('Conta ML salva com sucesso no banco para owner_user_id:', state.owner_user_id);
 
     // Redirecionar para página de sucesso
-    // Usar a URL do frontend configurada ou construir dinamicamente
     const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ae36497b-ab18-4e78-bc0b-f6436f4288a0.lovableproject.com';
     const redirectUrl = `${frontendUrl}/config-ml?ml_connected=true`;
     
