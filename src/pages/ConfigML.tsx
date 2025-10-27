@@ -14,7 +14,7 @@ import Layout from "@/components/Layout";
 const MAX_ML_ACCOUNTS = 5;
 
 export default function ConfigML() {
-  const { currentTenant } = useTenant();
+  const { currentTenant, loading: tenantLoading } = useTenant();
   const { refreshAccounts } = useMLAccount();
   const [isLoading, setIsLoading] = useState(false);
   const [mlAccounts, setMlAccounts] = useState<any[]>([]);
@@ -65,10 +65,20 @@ export default function ConfigML() {
   };
 
   const handleConnect = async () => {
-    if (!currentTenant) {
+    // Validação mais robusta do tenant
+    if (tenantLoading) {
       toast({
-        title: "Erro",
-        description: "Nenhum workspace selecionado",
+        title: "Aguarde",
+        description: "Carregando informações do workspace...",
+        variant: "default",
+      });
+      return;
+    }
+
+    if (!currentTenant?.id) {
+      toast({
+        title: "Erro de Configuração",
+        description: "Nenhum workspace selecionado. Tente fazer login novamente.",
         variant: "destructive",
       });
       return;
@@ -86,22 +96,38 @@ export default function ConfigML() {
     setIsLoading(true);
 
     try {
+      console.log('Iniciando conexão ML para tenant:', currentTenant.id);
+      
       const { data, error } = await supabase.functions.invoke('meli-auth', {
         body: { tenant_id: currentTenant.id }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro na função meli-auth:', error);
+        throw error;
+      }
 
       if (data?.authorization_url) {
+        console.log('Redirecionando para autorização ML...');
         window.location.href = data.authorization_url;
       } else {
-        throw new Error('URL de autorização não recebida');
+        throw new Error('URL de autorização não recebida da API');
       }
     } catch (error: any) {
-      console.error('Erro ao iniciar OAuth:', error);
+      console.error('Erro ao iniciar OAuth ML:', error);
+      
+      // Diferenciar tipos de erro
+      let errorMessage = error.message || "Erro ao conectar com Mercado Livre";
+      
+      if (errorMessage.includes('tenant_id')) {
+        errorMessage = "Erro de configuração do workspace. Tente fazer logout e login novamente.";
+      } else if (errorMessage.includes('authorization_url')) {
+        errorMessage = "Erro ao obter URL de autorização. Verifique se as credenciais do Mercado Livre estão configuradas corretamente.";
+      }
+      
       toast({
-        title: "Erro",
-        description: error.message || "Erro ao conectar com Mercado Livre",
+        title: "Erro na Conexão",
+        description: errorMessage,
         variant: "destructive",
       });
       setIsLoading(false);
@@ -191,20 +217,22 @@ export default function ConfigML() {
             <Button
               className="w-full"
               onClick={handleConnect}
-              disabled={isLoading || mlAccounts.length >= MAX_ML_ACCOUNTS}
+              disabled={isLoading || tenantLoading || !currentTenant || mlAccounts.length >= MAX_ML_ACCOUNTS}
               variant={mlAccounts.length > 0 ? "outline" : "default"}
             >
-              {isLoading ? (
+              {(isLoading || tenantLoading) ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ExternalLink className="h-4 w-4" />
               )}
               <span className="ml-2">
-                {mlAccounts.length >= MAX_ML_ACCOUNTS 
-                  ? `Limite de ${MAX_ML_ACCOUNTS} contas atingido`
-                  : mlAccounts.length > 0 
-                    ? 'Adicionar outra conta' 
-                    : 'Conectar com Mercado Livre'}
+                {tenantLoading 
+                  ? 'Carregando...'
+                  : mlAccounts.length >= MAX_ML_ACCOUNTS 
+                    ? `Limite de ${MAX_ML_ACCOUNTS} contas atingido`
+                    : mlAccounts.length > 0 
+                      ? 'Adicionar outra conta' 
+                      : 'Conectar com Mercado Livre'}
               </span>
             </Button>
           </CardContent>

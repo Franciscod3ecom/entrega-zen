@@ -10,8 +10,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 serve(async (req) => {
   try {
     const url = new URL(req.url);
-    console.log('Callback URL completa:', url.toString());
-    console.log('Query params recebidos:', Object.fromEntries(url.searchParams.entries()));
+    console.log('=== CALLBACK MERCADO LIVRE RECEBIDO ===');
+    console.log('URL completa:', url.toString());
+    console.log('Query params:', Object.fromEntries(url.searchParams.entries()));
     
     const code = url.searchParams.get('code');
     const stateParam = url.searchParams.get('state');
@@ -19,13 +20,20 @@ serve(async (req) => {
     const errorDescription = url.searchParams.get('error_description');
 
     if (error) {
-      console.error('Erro retornado pelo ML:', error, errorDescription);
+      console.error('ERRO retornado pelo Mercado Livre:', error, errorDescription);
       throw new Error(`Erro do Mercado Livre: ${error} - ${errorDescription}`);
     }
 
     if (!code || !stateParam) {
-      console.error('Código ou state não recebido. Params:', Object.fromEntries(url.searchParams.entries()));
-      throw new Error('Código de autorização ou state não fornecido pelo Mercado Livre');
+      console.error('=== ERRO: PARAMS VAZIOS ===');
+      console.error('Params recebidos:', Object.fromEntries(url.searchParams.entries()));
+      console.error('URL esperava receber: code e state');
+      console.error('');
+      console.error('POSSÍVEIS CAUSAS:');
+      console.error('1. ML_REDIRECT_URI no painel do Mercado Livre não corresponde à URL desta função');
+      console.error('2. ML_REDIRECT_URI deve ser: https://icoxkprlazegyzgxeeok.supabase.co/functions/v1/meli-callback');
+      console.error('3. Verifique em: https://developers.mercadolivre.com.br/apps');
+      throw new Error('Código de autorização ou state não fornecido pelo Mercado Livre. Verifique se a Redirect URI no app do ML está configurada corretamente.');
     }
 
     // Validar state

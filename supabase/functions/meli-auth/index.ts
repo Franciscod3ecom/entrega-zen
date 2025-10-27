@@ -14,21 +14,41 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Iniciando OAuth ML...');
+    console.log('=== INICIANDO OAUTH ML ===');
+    
+    // Validar configuração
+    if (!ML_CLIENT_ID || !ML_REDIRECT_URI) {
+      console.error('ERRO: Credenciais ML não configuradas!');
+      console.error('ML_CLIENT_ID:', ML_CLIENT_ID ? 'OK' : 'FALTANDO');
+      console.error('ML_REDIRECT_URI:', ML_REDIRECT_URI ? 'OK' : 'FALTANDO');
+      throw new Error('Credenciais do Mercado Livre não configuradas no servidor');
+    }
+    
+    console.log('ML_REDIRECT_URI configurado:', ML_REDIRECT_URI);
     
     // Obter tenant_id do body
     const { tenant_id } = await req.json();
     
     if (!tenant_id) {
+      console.error('ERRO: tenant_id não fornecido no body');
       throw new Error('tenant_id é obrigatório');
     }
     
+    console.log('tenant_id recebido:', tenant_id);
+    
     // Criar state com tenant_id e nonce para segurança
-    const state = btoa(JSON.stringify({
+    const stateData = {
       tenant_id,
       nonce: crypto.randomUUID(),
       exp: Date.now() + 10 * 60 * 1000, // 10 minutos
-    }));
+    };
+    const state = btoa(JSON.stringify(stateData));
+    
+    console.log('State gerado:', {
+      tenant_id: stateData.tenant_id,
+      nonce: stateData.nonce,
+      expira_em: new Date(stateData.exp).toISOString()
+    });
     
     const authUrl = new URL('https://auth.mercadolivre.com.br/authorization');
     authUrl.searchParams.set('response_type', 'code');
@@ -36,7 +56,10 @@ serve(async (req) => {
     authUrl.searchParams.set('redirect_uri', ML_REDIRECT_URI);
     authUrl.searchParams.set('state', state);
     
-    console.log('URL de autorização gerada:', authUrl.toString());
+    console.log('=== URL DE AUTORIZAÇÃO GERADA ===');
+    console.log('URL completa:', authUrl.toString());
+    console.log('Redirect URI usado:', ML_REDIRECT_URI);
+    console.log('==================================');
 
     return new Response(
       JSON.stringify({ authorization_url: authUrl.toString() }),
@@ -46,7 +69,9 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Erro em meli-auth:', error);
+    console.error('=== ERRO EM MELI-AUTH ===');
+    console.error('Mensagem:', error.message);
+    console.error('Stack:', error.stack);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
