@@ -124,6 +124,13 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_driver_assignments_shipment"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments_cache"
+            referencedColumns: ["shipment_id"]
+          },
         ]
       }
       driver_load_items: {
@@ -726,6 +733,23 @@ export type Database = {
     }
     Functions: {
       assign_first_admin: { Args: never; Returns: undefined }
+      get_pendencias_with_cache: {
+        Args: never
+        Returns: {
+          assigned_at: string
+          cache_last_update: string
+          cache_status: string
+          cache_substatus: string
+          cache_tracking: string
+          driver_id: string
+          driver_name: string
+          driver_phone: string
+          id: string
+          note: string
+          scanned_at: string
+          shipment_id: string
+        }[]
+      }
       get_user_tenant_ids: {
         Args: { _user_id: string }
         Returns: {

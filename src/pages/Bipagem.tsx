@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
-import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users } from "lucide-react";
+import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users, ArrowRight, Package } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -54,6 +56,22 @@ export default function Bipagem() {
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: recentScans } = useQuery({
+    queryKey: ['recent-scans'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('driver_assignments')
+        .select('id, shipment_id, scanned_at, drivers(name)')
+        .not('scanned_at', 'is', null)
+        .order('scanned_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 10000, // Atualizar a cada 10s
   });
 
   const processCode = async (code: string, source: 'scanner' | 'manual' = 'scanner') => {
@@ -175,6 +193,13 @@ export default function Bipagem() {
         description: data.account_nickname 
           ? `Pacote ${data.shipment_id} encontrado na conta ${data.account_nickname}`
           : `Pacote ${data.shipment_id} vinculado com sucesso`,
+        action: (
+          <Link to="/pendencias">
+            <Button variant="outline" size="sm">
+              Ver Pendências
+            </Button>
+          </Link>
+        ),
       });
 
       // Limpar campo manual
@@ -429,6 +454,55 @@ export default function Bipagem() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Últimas Bipagens */}
+        {recentScans && recentScans.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Últimas Bipagens ({recentScans.length})
+              </CardTitle>
+              <CardDescription>
+                Pacotes escaneados mais recentemente
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Shipment ID</TableHead>
+                      <TableHead>Motorista</TableHead>
+                      <TableHead>Escaneado em</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentScans.map((scan: any) => (
+                      <TableRow key={scan.id}>
+                        <TableCell className="font-mono text-sm">
+                          {scan.shipment_id}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {scan.drivers?.name || 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatBRT(scan.scanned_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/pendencias" className="flex items-center gap-2">
+                  Ver Todas as Pendências
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         )}

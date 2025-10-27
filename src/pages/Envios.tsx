@@ -27,12 +27,12 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Shipment {
-  shipment_id: number;
-  order_id: number | null;
+  shipment_id: string;
+  order_id: string | null;
   status: string;
   substatus: string | null;
   tracking_number: string | null;
-  last_update: string;
+  last_ml_update: string;
 }
 
 export default function Envios() {
@@ -41,7 +41,7 @@ export default function Envios() {
   const [filteredShipments, setFilteredShipments] = useState<Shipment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -59,9 +59,9 @@ export default function Envios() {
 
   const loadShipments = async () => {
     const { data, error } = await supabase
-      .from("shipments")
+      .from("shipments_cache")
       .select("*")
-      .order("last_update", { ascending: false });
+      .order("last_ml_update", { ascending: false });
 
     if (error) {
       toast.error("Erro ao carregar envios");
@@ -76,7 +76,7 @@ export default function Envios() {
     if (searchTerm) {
       filtered = filtered.filter(
         (s) =>
-          s.shipment_id.toString().includes(searchTerm) ||
+          s.shipment_id.includes(searchTerm) ||
           s.tracking_number?.includes(searchTerm)
       );
     }
@@ -88,12 +88,12 @@ export default function Envios() {
     setFilteredShipments(filtered);
   };
 
-  const handleRefresh = async (shipmentId: number) => {
+  const handleRefresh = async (shipmentId: string) => {
     setRefreshingId(shipmentId);
 
     try {
       const { error } = await supabase.functions.invoke('refresh-shipment', {
-        body: { shipment_id: String(shipmentId) },
+        body: { shipment_id: shipmentId },
       });
 
       if (error) throw error;
@@ -187,9 +187,9 @@ export default function Envios() {
                     </TableCell>
                     <TableCell className="text-sm">
                       <div>
-                        <div>{formatBRT(shipment.last_update)}</div>
+                        <div>{formatBRT(shipment.last_ml_update)}</div>
                         <div className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(shipment.last_update), {
+                          {formatDistanceToNow(new Date(shipment.last_ml_update), {
                             addSuffix: true,
                             locale: ptBR
                           })}

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, TrendingUp, TrendingDown, Truck, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface DashboardStats {
   totalShipments: number;
@@ -21,6 +24,32 @@ export default function Dashboard() {
     inRoute: 0,
     notDelivered: 0,
     toReturn: 0,
+  });
+
+  const { data: pendenciasData } = useQuery({
+    queryKey: ['dashboard-pendencias'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_pendencias_with_cache');
+      if (error) throw error;
+      
+      // Agrupar por motorista
+      const porMotorista = data.reduce((acc: any, item: any) => {
+        if (!acc[item.driver_id]) {
+          acc[item.driver_id] = {
+            driver_name: item.driver_name,
+            count: 0,
+          };
+        }
+        acc[item.driver_id].count++;
+        return acc;
+      }, {});
+
+      return {
+        total: data.length,
+        porMotorista: Object.values(porMotorista),
+      };
+    },
+    refetchInterval: 30000,
   });
 
   useEffect(() => {
@@ -125,16 +154,60 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center text-muted-foreground py-8">
-              Os eventos mais recentes aparecerão aqui
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Pendências Ativas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pendenciasData ? (
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-4xl font-bold">{pendenciasData.total}</div>
+                    <p className="text-sm text-muted-foreground">
+                      pacotes com motoristas
+                    </p>
+                  </div>
+                  
+                  {pendenciasData.porMotorista.length > 0 && (
+                    <div className="space-y-2 pt-4 border-t">
+                      <p className="text-sm font-medium">Por motorista:</p>
+                      {(pendenciasData.porMotorista as any[]).map((item: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <span className="text-sm">{item.driver_name}</span>
+                          <Badge variant="secondary">{item.count}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <Button asChild className="w-full mt-4">
+                    <Link to="/pendencias">Ver Detalhes →</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                  <p>Carregando...</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Atividade Recente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center text-muted-foreground py-8">
+                Os eventos mais recentes aparecerão aqui
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </Layout>
   );

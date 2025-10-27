@@ -21,27 +21,7 @@ export default function Pendencias() {
   const { data: pendencias, isLoading } = useQuery({
     queryKey: ['pendencias'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('driver_assignments')
-        .select(`
-          id,
-          shipment_id,
-          assigned_at,
-          scanned_at,
-          note,
-          drivers (
-            name,
-            phone
-          ),
-          shipments_cache (
-            status,
-            substatus,
-            tracking_number,
-            last_ml_update
-          )
-        `)
-        .is('returned_at', null)
-        .order('assigned_at', { ascending: false });
+      const { data, error } = await supabase.rpc('get_pendencias_with_cache');
       
       if (error) throw error;
       return data;
@@ -156,25 +136,25 @@ export default function Pendencias() {
                   {pendencias.map((pendencia: any) => (
                     <TableRow key={pendencia.id}>
                       <TableCell className="font-medium">
-                        {pendencia.drivers?.name || 'N/A'}
+                        {pendencia.driver_name || 'N/A'}
                         <br />
                         <span className="text-xs text-muted-foreground">
-                          {pendencia.drivers?.phone || ''}
+                          {pendencia.driver_phone || ''}
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {pendencia.shipment_id}
                       </TableCell>
                       <TableCell>
-                        {pendencia.shipments_cache ? (
+                        {pendencia.cache_status ? (
                           <div className="space-y-1">
                             <StatusBadge
-                              status={pendencia.shipments_cache.status}
-                              substatus={pendencia.shipments_cache.substatus}
+                              status={pendencia.cache_status}
+                              substatus={pendencia.cache_substatus}
                             />
-                            {pendencia.shipments_cache.last_ml_update && (
+                            {pendencia.cache_last_update && (
                               <div className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(pendencia.shipments_cache.last_ml_update), {
+                                {formatDistanceToNow(new Date(pendencia.cache_last_update), {
                                   addSuffix: true,
                                   locale: ptBR
                                 })}
@@ -183,7 +163,7 @@ export default function Pendencias() {
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-sm">
-                            Sem cache
+                            Aguardando atualização...
                           </span>
                         )}
                       </TableCell>
