@@ -2,6 +2,7 @@ import { useState } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +10,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Loader2, RefreshCw, CheckCircle } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 // Contextos removidos
 
@@ -30,6 +31,25 @@ export default function Pendencias() {
     },
     refetchInterval: 30000, // Atualizar a cada 30s
   });
+
+  // Buscar alertas pendentes para os shipments
+  const { data: alertas } = useQuery({
+    queryKey: ['alertas-pendencias'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('shipment_alerts')
+        .select('shipment_id, alert_type, status')
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 30000,
+  });
+
+  const getAlertForShipment = (shipmentId: string) => {
+    return alertas?.find((alert: any) => alert.shipment_id === shipmentId);
+  };
 
   const handleRefresh = async (assignmentId: string, shipmentId: string) => {
     setRefreshingId(assignmentId);
@@ -149,8 +169,10 @@ export default function Pendencias() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendencias.map((pendencia: any) => (
-                    <TableRow key={pendencia.id}>
+                  {pendencias.map((pendencia: any) => {
+                    const alert = getAlertForShipment(pendencia.shipment_id);
+                    return (
+                    <TableRow key={pendencia.id} className={alert ? "bg-destructive/5" : ""}>
                       <TableCell className="font-medium">
                         {pendencia.driver_name || 'N/A'}
                         <br />
@@ -159,7 +181,12 @@ export default function Pendencias() {
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {pendencia.shipment_id}
+                        <div className="flex items-center gap-2">
+                          {pendencia.shipment_id}
+                          {alert && (
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {pendencia.cache_status ? (
@@ -168,6 +195,13 @@ export default function Pendencias() {
                               status={pendencia.cache_status}
                               substatus={pendencia.cache_substatus}
                             />
+                            {alert && (
+                              <Badge variant="destructive" className="text-xs">
+                                {alert.alert_type === 'not_delivered_not_returned' 
+                                  ? 'Não devolvido >48h'
+                                  : 'Aguardando devolução'}
+                              </Badge>
+                            )}
                             {pendencia.cache_last_update && (
                               <div className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(pendencia.cache_last_update), {
@@ -231,7 +265,8 @@ export default function Pendencias() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+                  )}
                 </TableBody>
               </Table>
             </div>

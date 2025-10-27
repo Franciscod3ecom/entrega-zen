@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Truck, Plus, Phone, CheckCircle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Driver {
   id: string;
@@ -33,13 +34,23 @@ interface Driver {
   phone: string;
   active: boolean;
   created_at: string;
+  carrier_id: string | null;
+  carriers?: {
+    name: string;
+  } | null;
+}
+
+interface Carrier {
+  id: string;
+  name: string;
 }
 
 export default function Motoristas() {
   const navigate = useNavigate();
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newDriver, setNewDriver] = useState({ name: "", phone: "" });
+  const [newDriver, setNewDriver] = useState({ name: "", phone: "", carrier_id: "" });
   // Removido: const { currentTenant } = useTenant();
 
   useEffect(() => {
@@ -50,12 +61,13 @@ export default function Motoristas() {
     });
 
     loadDrivers();
+    loadCarriers();
   }, [navigate]);
 
   const loadDrivers = async () => {
     const { data, error } = await supabase
       .from("drivers")
-      .select("*")
+      .select("*, carriers(name)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -65,9 +77,23 @@ export default function Motoristas() {
     }
   };
 
+  const loadCarriers = async () => {
+    const { data, error } = await supabase
+      .from("carriers")
+      .select("id, name")
+      .eq("active", true)
+      .order("name");
+
+    if (error) {
+      console.error("Erro ao carregar transportadoras:", error);
+    } else {
+      setCarriers(data || []);
+    }
+  };
+
   const handleAddDriver = async () => {
     if (!newDriver.name || !newDriver.phone) {
-      toast.error("Preencha todos os campos");
+      toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
@@ -83,6 +109,7 @@ export default function Motoristas() {
       {
         name: newDriver.name,
         phone: newDriver.phone,
+        carrier_id: newDriver.carrier_id || null,
         active: true,
         owner_user_id: user.id,
       },
@@ -93,7 +120,7 @@ export default function Motoristas() {
     } else {
       toast.success("Motorista adicionado com sucesso!");
       setIsDialogOpen(false);
-      setNewDriver({ name: "", phone: "" });
+      setNewDriver({ name: "", phone: "", carrier_id: "" });
       loadDrivers();
     }
   };
@@ -138,7 +165,7 @@ export default function Motoristas() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome</Label>
+                  <Label htmlFor="name">Nome *</Label>
                   <Input
                     id="name"
                     placeholder="Nome do motorista"
@@ -149,7 +176,7 @@ export default function Motoristas() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
+                  <Label htmlFor="phone">Telefone *</Label>
                   <Input
                     id="phone"
                     placeholder="(00) 00000-0000"
@@ -158,6 +185,25 @@ export default function Motoristas() {
                       setNewDriver({ ...newDriver, phone: e.target.value })
                     }
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="carrier">Transportadora</Label>
+                  <Select 
+                    value={newDriver.carrier_id} 
+                    onValueChange={(value) => setNewDriver({ ...newDriver, carrier_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma transportadora (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhuma</SelectItem>
+                      {carriers.map((carrier) => (
+                        <SelectItem key={carrier.id} value={carrier.id}>
+                          {carrier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <DialogFooter>
@@ -173,6 +219,7 @@ export default function Motoristas() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Telefone</TableHead>
+                <TableHead>Transportadora</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Data de Cadastro</TableHead>
                 <TableHead>Ações</TableHead>
@@ -181,7 +228,7 @@ export default function Motoristas() {
             <TableBody>
               {drivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <Truck className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">
                       Nenhum motorista cadastrado
@@ -197,6 +244,13 @@ export default function Motoristas() {
                         <Phone className="h-4 w-4 text-muted-foreground" />
                         {driver.phone}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {driver.carriers?.name ? (
+                        <Badge variant="outline">{driver.carriers.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {driver.active ? (
