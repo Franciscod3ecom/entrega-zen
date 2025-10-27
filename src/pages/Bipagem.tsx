@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,12 @@ export default function Bipagem() {
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
-  const [lastScanned, setLastScanned] = useState<string>("");
-  const [lastScanTime, setLastScanTime] = useState<number>(0);
   const { toast } = useToast();
+
+  // Sistema de cooldown por shipment para evitar duplicatas
+  const processingShipmentRef = useRef<string | null>(null);
+  const recentShipmentsRef = useRef<Map<string, number>>(new Map());
+  const cooldownMs = 5000; // 5 segundos de cooldown por shipment
 
   const { data: drivers, isLoading: driversLoading } = useQuery({
     queryKey: ['drivers'],
@@ -72,9 +75,9 @@ export default function Bipagem() {
       return;
     }
 
-    // Debounce: evitar duplicados em <2s
-    const now = Date.now();
-    if (code === lastScanned && now - lastScanTime < 2000) {
+    // Bloqueio global: se já está processando, ignorar
+    if (isProcessing) {
+      console.log('[Bipagem] Ignorado: já está processando outro código');
       return;
     }
 
@@ -120,8 +123,22 @@ export default function Bipagem() {
       return;
     }
 
-    setLastScanned(code);
-    setLastScanTime(now);
+    // 4️⃣ Verificar cooldown por shipment (evitar duplicatas)
+    const now = Date.now();
+    const lastProcessed = recentShipmentsRef.current.get(shipmentId);
+    if (lastProcessed && now - lastProcessed < cooldownMs) {
+      const remainingTime = Math.ceil((cooldownMs - (now - lastProcessed)) / 1000);
+      console.log(`[Bipagem] Ignorado: shipment ${shipmentId} em cooldown (${remainingTime}s restantes)`);
+      
+      // Feedback sutil de duplicata (vibração curta)
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+      return;
+    }
+
+    // Lock: marcar que estamos processando este shipment
+    processingShipmentRef.current = shipmentId;
     setIsProcessing(true);
 
     try {
@@ -206,6 +223,11 @@ export default function Bipagem() {
         navigator.vibrate([100, 50, 100]);
       }
     } finally {
+      // Registrar timestamp do processamento (sucesso ou erro) para cooldown
+      recentShipmentsRef.current.set(shipmentId, Date.now());
+      
+      // Limpar lock
+      processingShipmentRef.current = null;
       setIsProcessing(false);
     }
   };
