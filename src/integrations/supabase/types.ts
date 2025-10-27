@@ -73,6 +73,7 @@ export type Database = {
           id: string
           ml_account_id: string | null
           note: string | null
+          owner_user_id: string
           returned_at: string | null
           scanned_at: string | null
           shipment_id: string
@@ -85,6 +86,7 @@ export type Database = {
           id?: string
           ml_account_id?: string | null
           note?: string | null
+          owner_user_id: string
           returned_at?: string | null
           scanned_at?: string | null
           shipment_id: string
@@ -97,6 +99,7 @@ export type Database = {
           id?: string
           ml_account_id?: string | null
           note?: string | null
+          owner_user_id?: string
           returned_at?: string | null
           scanned_at?: string | null
           shipment_id?: string
@@ -219,6 +222,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner_user_id: string
           phone: string
           tenant_id: string
           updated_at: string
@@ -229,6 +233,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          owner_user_id: string
           phone: string
           tenant_id: string
           updated_at?: string
@@ -239,6 +244,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          owner_user_id?: string
           phone?: string
           tenant_id?: string
           updated_at?: string
@@ -298,7 +304,7 @@ export type Database = {
           id: string
           ml_user_id: number
           nickname: string | null
-          owner_user_id: string | null
+          owner_user_id: string
           refresh_token: string
           site_id: string
           tenant_id: string
@@ -311,7 +317,7 @@ export type Database = {
           id?: string
           ml_user_id: number
           nickname?: string | null
-          owner_user_id?: string | null
+          owner_user_id: string
           refresh_token: string
           site_id: string
           tenant_id: string
@@ -324,7 +330,7 @@ export type Database = {
           id?: string
           ml_user_id?: number
           nickname?: string | null
-          owner_user_id?: string | null
+          owner_user_id?: string
           refresh_token?: string
           site_id?: string
           tenant_id?: string
@@ -381,6 +387,7 @@ export type Database = {
           buyer_id: number | null
           created_at: string
           order_id: number
+          owner_user_id: string
           pack_id: number | null
           status: string | null
           tenant_id: string
@@ -391,6 +398,7 @@ export type Database = {
           buyer_id?: number | null
           created_at: string
           order_id: number
+          owner_user_id: string
           pack_id?: number | null
           status?: string | null
           tenant_id: string
@@ -401,6 +409,7 @@ export type Database = {
           buyer_id?: number | null
           created_at?: string
           order_id?: number
+          owner_user_id?: string
           pack_id?: number | null
           status?: string | null
           tenant_id?: string
@@ -482,6 +491,7 @@ export type Database = {
           driver_id: string
           id: string
           ml_account_id: string | null
+          owner_user_id: string
           resolved_from: string | null
           scanned_at: string
           scanned_code: string
@@ -493,6 +503,7 @@ export type Database = {
           driver_id: string
           id?: string
           ml_account_id?: string | null
+          owner_user_id: string
           resolved_from?: string | null
           scanned_at?: string
           scanned_code: string
@@ -504,6 +515,7 @@ export type Database = {
           driver_id?: string
           id?: string
           ml_account_id?: string | null
+          owner_user_id?: string
           resolved_from?: string | null
           scanned_at?: string
           scanned_code?: string
@@ -577,6 +589,7 @@ export type Database = {
           created_at: string
           last_update: string
           order_id: number | null
+          owner_user_id: string
           shipment_id: number
           status: string
           substatus: string | null
@@ -587,6 +600,7 @@ export type Database = {
           created_at?: string
           last_update?: string
           order_id?: number | null
+          owner_user_id: string
           shipment_id: number
           status: string
           substatus?: string | null
@@ -597,6 +611,7 @@ export type Database = {
           created_at?: string
           last_update?: string
           order_id?: number | null
+          owner_user_id?: string
           shipment_id?: number
           status?: string
           substatus?: string | null
@@ -626,6 +641,7 @@ export type Database = {
           last_ml_update: string
           ml_account_id: string | null
           order_id: string | null
+          owner_user_id: string
           pack_id: string | null
           raw_data: Json | null
           shipment_id: string
@@ -639,6 +655,7 @@ export type Database = {
           last_ml_update?: string
           ml_account_id?: string | null
           order_id?: string | null
+          owner_user_id: string
           pack_id?: string | null
           raw_data?: Json | null
           shipment_id: string
@@ -652,6 +669,7 @@ export type Database = {
           last_ml_update?: string
           ml_account_id?: string | null
           order_id?: string | null
+          owner_user_id?: string
           pack_id?: string | null
           raw_data?: Json | null
           shipment_id?: string
