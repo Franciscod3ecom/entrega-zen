@@ -17,24 +17,40 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { driver_id, shipment_id, tenant_id } = await req.json();
-
-    if (!driver_id || !shipment_id || !tenant_id) {
-      throw new Error('driver_id, shipment_id e tenant_id são obrigatórios');
+    
+    // Extrair owner_user_id do JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Não autenticado');
     }
 
-    console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (tipo: ${typeof shipment_id}, tenant: ${tenant_id})`);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    // 1. Buscar todas as contas ML ativas do tenant
+    if (userError || !user) {
+      throw new Error('Token inválido');
+    }
+
+    const owner_user_id = user.id;
+    
+    const { driver_id, shipment_id } = await req.json();
+
+    if (!driver_id || !shipment_id) {
+      throw new Error('driver_id e shipment_id são obrigatórios');
+    }
+
+    console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (owner: ${owner_user_id})`);
+
+    // 1. Buscar todas as contas ML ativas do usuário
     const { data: mlAccounts, error: accountsError } = await supabase
       .from('ml_accounts')
-      .select('id, ml_user_id, nickname')
-      .eq('tenant_id', tenant_id);
+      .select('id, ml_user_id, nickname, owner_user_id')
+      .eq('owner_user_id', owner_user_id);
 
     if (accountsError) throw accountsError;
 
     if (!mlAccounts || mlAccounts.length === 0) {
-      throw new Error('Nenhuma conta ML configurada para este workspace');
+      throw new Error('Nenhuma conta ML configurada');
     }
 
     console.log(`[scan-bind-auto] Encontradas ${mlAccounts.length} contas para buscar`);
@@ -47,7 +63,7 @@ serve(async (req) => {
       try {
         console.log(`[scan-bind-auto] Tentando conta ${account.nickname} (${account.ml_user_id})...`);
         
-        const data = await mlGet(`/shipments/${shipment_id}`, {}, tenant_id, account.ml_user_id);
+        const data = await mlGet(`/shipments/${shipment_id}`, {}, account.ml_user_id);
         
         if (data && data.id) {
           shipmentData = data;
@@ -84,7 +100,7 @@ serve(async (req) => {
       .from('shipments_cache')
       .upsert({
         shipment_id: String(shipment_id),
-        tenant_id: tenant_id,
+        owner_user_id: owner_user_id,
         ml_account_id: foundAccount.id,
         status,
         substatus,
@@ -109,7 +125,7 @@ serve(async (req) => {
       .select('*')
       .eq('shipment_id', String(shipment_id))
       .eq('driver_id', driver_id)
-      .eq('tenant_id', tenant_id)
+      .eq('owner_user_id', owner_user_id)
       .maybeSingle();
 
     if (existingAssignment) {
@@ -128,7 +144,7 @@ serve(async (req) => {
         .insert({
           driver_id,
           shipment_id: String(shipment_id),
-          tenant_id,
+          owner_user_id: owner_user_id,
           ml_account_id: foundAccount.id,
           assigned_at: now,
           scanned_at: now,
@@ -144,7 +160,7 @@ serve(async (req) => {
       .insert({
         driver_id,
         shipment_id: String(shipment_id),
-        tenant_id,
+        owner_user_id: owner_user_id,
         ml_account_id: foundAccount.id,
         scanned_code: String(shipment_id),
         resolved_from: 'qr_auto_multi',

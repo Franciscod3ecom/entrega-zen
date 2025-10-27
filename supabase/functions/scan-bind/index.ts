@@ -17,19 +17,18 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { driver_id, shipment_id, tenant_id, ml_user_id } = await req.json();
+    const { driver_id, shipment_id, ml_user_id } = await req.json();
 
-    if (!driver_id || !shipment_id || !tenant_id || !ml_user_id) {
-      throw new Error('driver_id, shipment_id, tenant_id e ml_user_id são obrigatórios');
+    if (!driver_id || !shipment_id || !ml_user_id) {
+      throw new Error('driver_id, shipment_id e ml_user_id são obrigatórios');
     }
 
-    console.log(`[scan-bind] Processando shipment_id: ${shipment_id} para motorista: ${driver_id} (tenant: ${tenant_id}, ml_user: ${ml_user_id})`);
+    console.log(`[scan-bind] Processando shipment_id: ${shipment_id} para motorista: ${driver_id} (ml_user: ${ml_user_id})`);
 
-    // 1. Buscar ml_account_id
+    // 1. Buscar ml_account_id e owner_user_id
     const { data: mlAccount } = await supabase
       .from('ml_accounts')
-      .select('id')
-      .eq('tenant_id', tenant_id)
+      .select('id, owner_user_id')
       .eq('ml_user_id', ml_user_id)
       .single();
 
@@ -40,7 +39,7 @@ serve(async (req) => {
     // 2. Validar shipment_id com GET /shipments/{id} (fonte da verdade)
     let shipmentData;
     try {
-      shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, tenant_id, ml_user_id);
+      shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, ml_user_id);
       if (!shipmentData || !shipmentData.id) {
         throw new Error(`Shipment ${shipment_id} não encontrado no Mercado Livre`);
       }
@@ -63,7 +62,7 @@ serve(async (req) => {
       .from('shipments_cache')
       .upsert({
         shipment_id: String(shipment_id),
-        tenant_id: tenant_id,
+        owner_user_id: mlAccount.owner_user_id,
         ml_account_id: mlAccount.id,
         status,
         substatus,
@@ -88,7 +87,7 @@ serve(async (req) => {
       .select('*')
       .eq('shipment_id', String(shipment_id))
       .eq('driver_id', driver_id)
-      .eq('tenant_id', tenant_id)
+      .eq('owner_user_id', mlAccount.owner_user_id)
       .maybeSingle();
 
     if (existingAssignment) {
@@ -107,7 +106,7 @@ serve(async (req) => {
         .insert({
           driver_id,
           shipment_id: String(shipment_id),
-          tenant_id,
+          owner_user_id: mlAccount.owner_user_id,
           ml_account_id: mlAccount.id,
           assigned_at: now,
           scanned_at: now,
@@ -123,7 +122,7 @@ serve(async (req) => {
       .insert({
         driver_id,
         shipment_id: String(shipment_id),
-        tenant_id,
+        owner_user_id: mlAccount.owner_user_id,
         ml_account_id: mlAccount.id,
         scanned_code: String(shipment_id),
         resolved_from: 'qr_direct',

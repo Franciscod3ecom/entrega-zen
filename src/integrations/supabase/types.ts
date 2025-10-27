@@ -77,7 +77,6 @@ export type Database = {
           returned_at: string | null
           scanned_at: string | null
           shipment_id: string
-          tenant_id: string
         }
         Insert: {
           assigned_at?: string
@@ -90,7 +89,6 @@ export type Database = {
           returned_at?: string | null
           scanned_at?: string | null
           shipment_id: string
-          tenant_id: string
         }
         Update: {
           assigned_at?: string
@@ -103,7 +101,6 @@ export type Database = {
           returned_at?: string | null
           scanned_at?: string | null
           shipment_id?: string
-          tenant_id?: string
         }
         Relationships: [
           {
@@ -118,13 +115,6 @@ export type Database = {
             columns: ["ml_account_id"]
             isOneToOne: false
             referencedRelation: "ml_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "driver_assignments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
           {
@@ -224,7 +214,6 @@ export type Database = {
           name: string
           owner_user_id: string
           phone: string
-          tenant_id: string
           updated_at: string
           user_id: string | null
         }
@@ -235,7 +224,6 @@ export type Database = {
           name: string
           owner_user_id: string
           phone: string
-          tenant_id: string
           updated_at?: string
           user_id?: string | null
         }
@@ -246,52 +234,15 @@ export type Database = {
           name?: string
           owner_user_id?: string
           phone?: string
-          tenant_id?: string
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "drivers_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "drivers_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      memberships: {
-        Row: {
-          created_at: string
-          role: string
-          tenant_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          role?: string
-          tenant_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          role?: string
-          tenant_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "memberships_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -307,7 +258,6 @@ export type Database = {
           owner_user_id: string
           refresh_token: string
           site_id: string
-          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -320,7 +270,6 @@ export type Database = {
           owner_user_id: string
           refresh_token: string
           site_id: string
-          tenant_id: string
           updated_at?: string
         }
         Update: {
@@ -333,18 +282,9 @@ export type Database = {
           owner_user_id?: string
           refresh_token?: string
           site_id?: string
-          tenant_id?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "ml_accounts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       ml_tokens: {
         Row: {
@@ -390,7 +330,6 @@ export type Database = {
           owner_user_id: string
           pack_id: number | null
           status: string | null
-          tenant_id: string
           total: number | null
           updated_at: string
         }
@@ -401,7 +340,6 @@ export type Database = {
           owner_user_id: string
           pack_id?: number | null
           status?: string | null
-          tenant_id: string
           total?: number | null
           updated_at?: string
         }
@@ -412,19 +350,10 @@ export type Database = {
           owner_user_id?: string
           pack_id?: number | null
           status?: string | null
-          tenant_id?: string
           total?: number | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "orders_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -496,7 +425,6 @@ export type Database = {
           scanned_at: string
           scanned_code: string
           shipment_id: string
-          tenant_id: string
         }
         Insert: {
           created_at?: string
@@ -508,7 +436,6 @@ export type Database = {
           scanned_at?: string
           scanned_code: string
           shipment_id: string
-          tenant_id: string
         }
         Update: {
           created_at?: string
@@ -520,7 +447,6 @@ export type Database = {
           scanned_at?: string
           scanned_code?: string
           shipment_id?: string
-          tenant_id?: string
         }
         Relationships: [
           {
@@ -535,13 +461,6 @@ export type Database = {
             columns: ["ml_account_id"]
             isOneToOne: false
             referencedRelation: "ml_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "scan_logs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -593,7 +512,6 @@ export type Database = {
           shipment_id: number
           status: string
           substatus: string | null
-          tenant_id: string
           tracking_number: string | null
         }
         Insert: {
@@ -604,7 +522,6 @@ export type Database = {
           shipment_id: number
           status: string
           substatus?: string | null
-          tenant_id: string
           tracking_number?: string | null
         }
         Update: {
@@ -615,7 +532,6 @@ export type Database = {
           shipment_id?: number
           status?: string
           substatus?: string | null
-          tenant_id?: string
           tracking_number?: string | null
         }
         Relationships: [
@@ -625,13 +541,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "shipments_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -647,7 +556,6 @@ export type Database = {
           shipment_id: string
           status: string
           substatus: string | null
-          tenant_id: string
           tracking_number: string | null
         }
         Insert: {
@@ -661,7 +569,6 @@ export type Database = {
           shipment_id: string
           status: string
           substatus?: string | null
-          tenant_id: string
           tracking_number?: string | null
         }
         Update: {
@@ -675,7 +582,6 @@ export type Database = {
           shipment_id?: string
           status?: string
           substatus?: string | null
-          tenant_id?: string
           tracking_number?: string | null
         }
         Relationships: [
@@ -686,35 +592,7 @@ export type Database = {
             referencedRelation: "ml_accounts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "shipments_cache_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
         ]
-      }
-      tenants: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       user_roles: {
         Row: {
@@ -766,12 +644,6 @@ export type Database = {
           note: string
           scanned_at: string
           shipment_id: string
-        }[]
-      }
-      get_user_tenant_ids: {
-        Args: { _user_id: string }
-        Returns: {
-          tenant_id: string
         }[]
       }
       has_role: {

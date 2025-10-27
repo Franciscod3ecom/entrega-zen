@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenant } from "@/contexts/TenantContext";
-import { useMLAccount } from "@/contexts/MLAccountContext";
+// Contextos removidos
 import { Loader2, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -14,8 +13,7 @@ import Layout from "@/components/Layout";
 const MAX_ML_ACCOUNTS = 5;
 
 export default function ConfigML() {
-  const { currentTenant, loading: tenantLoading } = useTenant();
-  const { refreshAccounts } = useMLAccount();
+  // Contextos removidos
   const [isLoading, setIsLoading] = useState(false);
   const [mlAccounts, setMlAccounts] = useState<any[]>([]);
   const { toast } = useToast();
@@ -34,7 +32,6 @@ export default function ConfigML() {
         description: "Conta do Mercado Livre conectada com sucesso!",
       });
       checkConnection();
-      refreshAccounts(); // Atualizar contexto
     }
 
     if (mlError) {
@@ -44,17 +41,15 @@ export default function ConfigML() {
         variant: "destructive",
       });
     }
-  }, [searchParams, currentTenant]);
+  }, [searchParams]);
 
   const checkConnection = async () => {
-    if (!currentTenant) return;
     
     try {
-      const { data, error } = await supabase
-        .from('ml_accounts')
-        .select('*')
-        .eq('tenant_id', currentTenant.id)
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('ml_accounts')
+      .select('*')
+      .order('created_at', { ascending: false });
 
       if (error) throw error;
 

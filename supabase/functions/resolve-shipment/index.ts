@@ -16,20 +16,19 @@ serve(async (req) => {
   }
 
   try {
-    const { input_id, tenant_id, ml_user_id } = await req.json();
+    const { input_id, ml_user_id } = await req.json();
 
-    if (!input_id || !tenant_id || !ml_user_id) {
-      throw new Error('input_id, tenant_id e ml_user_id são obrigatórios');
+    if (!input_id || !ml_user_id) {
+      throw new Error('input_id e ml_user_id são obrigatórios');
     }
 
-    console.log('Resolvendo ID:', input_id, 'tenant:', tenant_id, 'ml_user:', ml_user_id);
+    console.log('Resolvendo ID:', input_id, 'ml_user:', ml_user_id);
 
-    // Buscar ml_account_id
+    // Buscar ml_account_id e owner_user_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: mlAccount } = await supabase
       .from('ml_accounts')
-      .select('id')
-      .eq('tenant_id', tenant_id)
+      .select('id, owner_user_id')
       .eq('ml_user_id', ml_user_id)
       .single();
 
@@ -44,7 +43,7 @@ serve(async (req) => {
     // Estratégia 1: Tentar como shipment_id direto
     try {
       console.log('Tentando como shipment_id...');
-      shipmentData = await mlGet(`/shipments/${input_id}`, {}, tenant_id, ml_user_id);
+      shipmentData = await mlGet(`/shipments/${input_id}`, {}, ml_user_id);
       console.log('Sucesso! É um shipment_id');
       
       if (shipmentData.order_id) {
@@ -55,7 +54,7 @@ serve(async (req) => {
 
       // Estratégia 2: Tentar como pack_id
       try {
-        const packData = await mlGet(`/packs/${input_id}`, {}, tenant_id, ml_user_id);
+        const packData = await mlGet(`/packs/${input_id}`, {}, ml_user_id);
         packId = input_id;
         console.log('Sucesso! É um pack_id com', packData.orders?.length || 0, 'orders');
 
@@ -65,10 +64,10 @@ serve(async (req) => {
           orderId = firstOrder.id.toString();
           
           // Buscar shipment do order
-          const orderData = await mlGet(`/orders/${orderId}`, {}, tenant_id, ml_user_id);
+          const orderData = await mlGet(`/orders/${orderId}`, {}, ml_user_id);
           
           if (orderData.shipping?.id) {
-            shipmentData = await mlGet(`/shipments/${orderData.shipping.id}`, {}, tenant_id, ml_user_id);
+            shipmentData = await mlGet(`/shipments/${orderData.shipping.id}`, {}, ml_user_id);
             console.log('Shipment encontrado via pack/order');
           }
         }
@@ -77,12 +76,12 @@ serve(async (req) => {
 
         // Estratégia 3: Tentar como order_id
         try {
-          const orderData = await mlGet(`/orders/${input_id}`, {}, tenant_id, ml_user_id);
+          const orderData = await mlGet(`/orders/${input_id}`, {}, ml_user_id);
           orderId = input_id;
           packId = orderData.pack_id ? orderData.pack_id.toString() : null;
           
           if (orderData.shipping?.id) {
-            shipmentData = await mlGet(`/shipments/${orderData.shipping.id}`, {}, tenant_id, ml_user_id);
+            shipmentData = await mlGet(`/shipments/${orderData.shipping.id}`, {}, ml_user_id);
             console.log('Shipment encontrado via order');
           } else {
             throw new Error('Order não possui shipment associado');
@@ -102,7 +101,7 @@ serve(async (req) => {
       .from('shipments_cache')
       .upsert({
         shipment_id: shipmentData.id.toString(),
-        tenant_id: tenant_id,
+        owner_user_id: mlAccount.owner_user_id,
         ml_account_id: mlAccount.id,
         order_id: orderId,
         pack_id: packId,

@@ -3,8 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { TenantProvider } from "./contexts/TenantContext";
-import { MLAccountProvider } from "./contexts/MLAccountContext";
+// Contextos removidos
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
@@ -23,22 +22,18 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <TenantProvider>
-          <MLAccountProvider>
-            <Routes>
-            <Route path="/" element={<Auth />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/envios" element={<Envios />} />
-            <Route path="/motoristas" element={<Motoristas />} />
-            <Route path="/vincular" element={<VincularVenda />} />
-            <Route path="/bipagem" element={<Bipagem />} />
-            <Route path="/pendencias" element={<Pendencias />} />
-            <Route path="/config-ml" element={<ConfigML />} />
-            <Route path="*" element={<NotFound />} />
-            </Routes>
-          </MLAccountProvider>
-        </TenantProvider>
+        <Routes>
+          <Route path="/" element={<Auth />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/envios" element={<Envios />} />
+          <Route path="/motoristas" element={<Motoristas />} />
+          <Route path="/vincular" element={<VincularVenda />} />
+          <Route path="/bipagem" element={<Bipagem />} />
+          <Route path="/pendencias" element={<Pendencias />} />
+          <Route path="/config-ml" element={<ConfigML />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useTenant } from "@/contexts/TenantContext";
+// Removido: import { useTenant } from "@/contexts/TenantContext";
 import {
   Table,
   TableBody,
@@ -40,7 +40,7 @@ export default function Motoristas() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newDriver, setNewDriver] = useState({ name: "", phone: "" });
-  const { currentTenant } = useTenant();
+  // Removido: const { currentTenant } = useTenant();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -71,8 +71,11 @@ export default function Motoristas() {
       return;
     }
 
-    if (!currentTenant) {
-      toast.error("Nenhum workspace selecionado");
+    // Buscar owner_user_id do usuário autenticado
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast.error("Usuário não autenticado");
       return;
     }
 
@@ -81,7 +84,7 @@ export default function Motoristas() {
         name: newDriver.name,
         phone: newDriver.phone,
         active: true,
-        tenant_id: currentTenant.id,
+        owner_user_id: user.id,
       },
     ]);
 

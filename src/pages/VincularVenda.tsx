@@ -11,18 +11,39 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
 import { Loader2, Search, Link as LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useTenant } from "@/contexts/TenantContext";
-import { useMLAccount } from "@/contexts/MLAccountContext";
+// Removidos: import { useTenant } from "@/contexts/TenantContext";
+// Removidos: import { useMLAccount } from "@/contexts/MLAccountContext";
 
 export default function VincularVenda() {
-  const { currentTenant } = useTenant();
-  const { currentAccount } = useMLAccount();
+  // Removidos: const { currentTenant } = useTenant();
+  // Removidos: const { currentAccount } = useMLAccount();
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [inputId, setInputId] = useState("");
   const [shipmentData, setShipmentData] = useState<any>(null);
   const [selectedDriver, setSelectedDriver] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const { toast } = useToast();
+
+  // Buscar contas ML do usuário
+  const { data: mlAccounts } = useQuery({
+    queryKey: ['ml-accounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ml_accounts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Selecionar automaticamente a primeira conta se não houver nenhuma selecionada
+      if (data && data.length > 0 && !selectedAccount) {
+        setSelectedAccount(data[0]);
+      }
+      
+      return data;
+    },
+  });
 
   const { data: drivers, isLoading: driversLoading } = useQuery({
     queryKey: ['drivers'],
@@ -48,10 +69,10 @@ export default function VincularVenda() {
       return;
     }
 
-    if (!currentTenant || !currentAccount) {
+    if (!selectedAccount) {
       toast({
         title: "Erro",
-        description: "Selecione workspace e conta ML",
+        description: "Nenhuma conta ML configurada",
         variant: "destructive",
       });
       return;
@@ -64,8 +85,7 @@ export default function VincularVenda() {
       const { data, error } = await supabase.functions.invoke('resolve-shipment', {
         body: { 
           input_id: inputId.trim(),
-          tenant_id: currentTenant.id,
-          ml_user_id: currentAccount.ml_user_id,
+          ml_user_id: selectedAccount.ml_user_id,
         },
       });
 
@@ -107,10 +127,10 @@ export default function VincularVenda() {
       return;
     }
 
-    if (!currentTenant || !currentAccount) {
+    if (!selectedAccount) {
       toast({
         title: "Erro",
-        description: "Nenhum workspace ou conta ML selecionada",
+        description: "Nenhuma conta ML selecionada",
         variant: "destructive",
       });
       return;
@@ -119,12 +139,11 @@ export default function VincularVenda() {
     setIsLinking(true);
 
     try {
-      // Buscar ml_account_id
+      // Buscar ml_account_id e owner_user_id
       const { data: mlAccount } = await supabase
         .from('ml_accounts')
-        .select('id')
-        .eq('tenant_id', currentTenant.id)
-        .eq('ml_user_id', currentAccount.ml_user_id)
+        .select('id, owner_user_id')
+        .eq('ml_user_id', selectedAccount.ml_user_id)
         .single();
 
       if (!mlAccount) {
@@ -136,7 +155,7 @@ export default function VincularVenda() {
         .insert({
           driver_id: selectedDriver,
           shipment_id: shipmentData.shipment_id,
-          tenant_id: currentTenant.id,
+          owner_user_id: mlAccount.owner_user_id,
           ml_account_id: mlAccount.id,
         });
 

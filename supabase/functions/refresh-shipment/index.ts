@@ -16,20 +16,20 @@ serve(async (req) => {
   }
 
   try {
-    const { shipment_id, tenant_id, ml_user_id } = await req.json();
+    const { shipment_id, ml_user_id } = await req.json();
 
-    if (!shipment_id || !tenant_id || !ml_user_id) {
-      throw new Error('shipment_id, tenant_id e ml_user_id são obrigatórios');
+    if (!shipment_id || !ml_user_id) {
+      throw new Error('shipment_id e ml_user_id são obrigatórios');
     }
 
-    console.log('Atualizando shipment:', shipment_id, 'tenant:', tenant_id, 'ml_user:', ml_user_id);
+    console.log('Atualizando shipment:', shipment_id, 'ml_user:', ml_user_id);
 
-    // Buscar ml_account_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Buscar ml_account_id e owner_user_id
     const { data: mlAccount } = await supabase
       .from('ml_accounts')
-      .select('id')
-      .eq('tenant_id', tenant_id)
+      .select('id, owner_user_id')
       .eq('ml_user_id', ml_user_id)
       .single();
 
@@ -37,13 +37,15 @@ serve(async (req) => {
       throw new Error('Conta ML não encontrada');
     }
 
-    const shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, tenant_id, ml_user_id);
-    
-    const { error: cacheError } = await supabase
+    // Buscar dados atualizados do shipment
+    const shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, ml_user_id);
+
+    // Atualizar cache
+    const { error: updateError } = await supabase
       .from('shipments_cache')
       .upsert({
-        shipment_id: shipment_id.toString(),
-        tenant_id: tenant_id,
+        shipment_id: shipment_id,
+        owner_user_id: mlAccount.owner_user_id,
         ml_account_id: mlAccount.id,
         order_id: shipmentData.order_id ? shipmentData.order_id.toString() : null,
         pack_id: shipmentData.pack_id ? shipmentData.pack_id.toString() : null,
@@ -56,19 +58,19 @@ serve(async (req) => {
         onConflict: 'shipment_id',
       });
 
-    if (cacheError) {
-      throw cacheError;
+    if (updateError) {
+      throw updateError;
     }
 
     console.log('Shipment atualizado com sucesso');
 
     return new Response(
       JSON.stringify({
-        shipment_id: shipment_id.toString(),
+        success: true,
+        shipment_id: shipment_id,
         status: shipmentData.status || shipmentData.substatus,
         substatus: shipmentData.status_history?.substatus || null,
         tracking_number: shipmentData.tracking_number || null,
-        last_ml_update: new Date().toISOString(),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
