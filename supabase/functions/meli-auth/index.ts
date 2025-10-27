@@ -35,11 +35,40 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
-      console.error('ERRO: usuário não autenticado', userErr);
+    let user;
+    try {
+      const { data: { user: authUser }, error: userErr } = await supabase.auth.getUser();
+      
+      if (userErr) {
+        console.error('ERRO ao obter usuário:', userErr);
+        return new Response(
+          JSON.stringify({ error: 'Erro de autenticação: ' + userErr.message }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          }
+        );
+      }
+      
+      if (!authUser) {
+        console.error('ERRO: nenhum usuário autenticado no token');
+        return new Response(
+          JSON.stringify({ error: 'Token de autenticação inválido ou expirado. Faça login novamente.' }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          }
+        );
+      }
+      
+      user = authUser;
+    } catch (parseError: any) {
+      console.error('ERRO ao fazer parse da resposta de autenticação:', parseError);
       return new Response(
-        JSON.stringify({ error: 'Não autenticado' }),
+        JSON.stringify({ 
+          error: 'Erro ao validar token de autenticação. Faça logout e login novamente.',
+          details: parseError.message 
+        }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 401,

@@ -70,11 +70,24 @@ export default function ConfigML() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('meli-auth');
+      // Verificar autenticação antes de chamar a função
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Você precisa estar autenticado para conectar uma conta do Mercado Livre. Faça login novamente.');
+      }
+
+      console.log('Usuário autenticado, chamando meli-auth...');
+      
+      const { data, error } = await supabase.functions.invoke('meli-auth', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (error) {
         console.error('Erro na função meli-auth:', error);
-        throw error;
+        throw new Error(error.message || 'Erro ao iniciar processo de autorização');
       }
 
       if (data?.authorization_url) {
