@@ -11,10 +11,14 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2, RefreshCw, CheckCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTenant } from "@/contexts/TenantContext";
+import { useMLAccount } from "@/contexts/MLAccountContext";
 
 export default function Pendencias() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currentTenant } = useTenant();
+  const { currentAccount } = useMLAccount();
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
 
@@ -33,8 +37,16 @@ export default function Pendencias() {
     setRefreshingId(assignmentId);
 
     try {
+      if (!currentTenant?.id || !currentAccount?.ml_user_id) {
+        throw new Error('Tenant ou conta ML não configurados');
+      }
+
       const { error } = await supabase.functions.invoke('refresh-shipment', {
-        body: { shipment_id: shipmentId },
+        body: { 
+          shipment_id: shipmentId,
+          tenant_id: currentTenant.id,
+          ml_user_id: currentAccount.ml_user_id
+        },
       });
 
       if (error) throw error;
