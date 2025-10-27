@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-// Contextos removidos
 import { Loader2, ExternalLink, CheckCircle, AlertCircle } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -13,7 +12,6 @@ import Layout from "@/components/Layout";
 const MAX_ML_ACCOUNTS = 5;
 
 export default function ConfigML() {
-  // Contextos removidos
   const [isLoading, setIsLoading] = useState(false);
   const [mlAccounts, setMlAccounts] = useState<any[]>([]);
   const { toast } = useToast();
@@ -60,25 +58,6 @@ export default function ConfigML() {
   };
 
   const handleConnect = async () => {
-    // Validação mais robusta do tenant
-    if (tenantLoading) {
-      toast({
-        title: "Aguarde",
-        description: "Carregando informações do workspace...",
-        variant: "default",
-      });
-      return;
-    }
-
-    if (!currentTenant?.id) {
-      toast({
-        title: "Erro de Configuração",
-        description: "Nenhum workspace selecionado. Tente fazer login novamente.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (mlAccounts.length >= MAX_ML_ACCOUNTS) {
       toast({
         title: "Limite atingido",
@@ -91,11 +70,7 @@ export default function ConfigML() {
     setIsLoading(true);
 
     try {
-      console.log('Iniciando conexão ML para tenant:', currentTenant.id);
-      
-      const { data, error } = await supabase.functions.invoke('meli-auth', {
-        body: { tenant_id: currentTenant.id }
-      });
+      const { data, error } = await supabase.functions.invoke('meli-auth');
 
       if (error) {
         console.error('Erro na função meli-auth:', error);
@@ -111,18 +86,9 @@ export default function ConfigML() {
     } catch (error: any) {
       console.error('Erro ao iniciar OAuth ML:', error);
       
-      // Diferenciar tipos de erro
-      let errorMessage = error.message || "Erro ao conectar com Mercado Livre";
-      
-      if (errorMessage.includes('tenant_id')) {
-        errorMessage = "Erro de configuração do workspace. Tente fazer logout e login novamente.";
-      } else if (errorMessage.includes('authorization_url')) {
-        errorMessage = "Erro ao obter URL de autorização. Verifique se as credenciais do Mercado Livre estão configuradas corretamente.";
-      }
-      
       toast({
         title: "Erro na Conexão",
-        description: errorMessage,
+        description: error.message || "Erro ao conectar com Mercado Livre",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -134,8 +100,7 @@ export default function ConfigML() {
       const { error } = await supabase
         .from('ml_accounts')
         .delete()
-        .eq('id', accountId)
-        .eq('tenant_id', currentTenant?.id);
+        .eq('id', accountId);
 
       if (error) throw error;
 
@@ -145,7 +110,6 @@ export default function ConfigML() {
       });
       
       checkConnection();
-      refreshAccounts(); // Atualizar contexto
     } catch (error: any) {
       console.error('Erro ao remover conta:', error);
       toast({
@@ -212,22 +176,20 @@ export default function ConfigML() {
             <Button
               className="w-full"
               onClick={handleConnect}
-              disabled={isLoading || tenantLoading || !currentTenant || mlAccounts.length >= MAX_ML_ACCOUNTS}
+              disabled={isLoading || mlAccounts.length >= MAX_ML_ACCOUNTS}
               variant={mlAccounts.length > 0 ? "outline" : "default"}
             >
-              {(isLoading || tenantLoading) ? (
+              {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ExternalLink className="h-4 w-4" />
               )}
               <span className="ml-2">
-                {tenantLoading 
-                  ? 'Carregando...'
-                  : mlAccounts.length >= MAX_ML_ACCOUNTS 
-                    ? `Limite de ${MAX_ML_ACCOUNTS} contas atingido`
-                    : mlAccounts.length > 0 
-                      ? 'Adicionar outra conta' 
-                      : 'Conectar com Mercado Livre'}
+                {mlAccounts.length >= MAX_ML_ACCOUNTS 
+                  ? `Limite de ${MAX_ML_ACCOUNTS} contas atingido`
+                  : mlAccounts.length > 0 
+                    ? 'Adicionar outra conta' 
+                    : 'Conectar com Mercado Livre'}
               </span>
             </Button>
           </CardContent>
