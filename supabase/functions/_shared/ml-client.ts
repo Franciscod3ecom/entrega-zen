@@ -169,3 +169,14 @@ export async function mlPost(path: string, body: any, mlUserId: number): Promise
 
   return await response.json();
 }
+
+// FASE 5: Obter assignment do Flex (transportadora atribuída)
+export async function getShipmentAssignment(shipmentId: string, siteId: string, mlUserId: number): Promise<any> {
+  try {
+    const path = `/flex/sites/${siteId}/shipments/${shipmentId}/assignment/v2`;
+    return await mlGet(path, {}, mlUserId);
+  } catch (error: any) {
+    console.error(`Erro ao buscar assignment do shipment ${shipmentId}:`, error);
+    return null;
+  }
+}

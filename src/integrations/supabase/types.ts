@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      carriers: {
+        Row: {
+          active: boolean | null
+          contact_name: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          owner_user_id: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       delivery_attempts: {
         Row: {
           attempt_time: string
@@ -209,6 +245,7 @@ export type Database = {
       drivers: {
         Row: {
           active: boolean
+          carrier_id: string | null
           created_at: string
           id: string
           name: string
@@ -219,6 +256,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          carrier_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -229,6 +267,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          carrier_id?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -239,10 +278,61 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "drivers_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "drivers_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flex_handshake_logs: {
+        Row: {
+          created_at: string | null
+          from_driver: string | null
+          handshake_time: string | null
+          id: string
+          ml_account_id: string | null
+          owner_user_id: string
+          raw_data: Json | null
+          shipment_id: string
+          to_driver: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          from_driver?: string | null
+          handshake_time?: string | null
+          id?: string
+          ml_account_id?: string | null
+          owner_user_id: string
+          raw_data?: Json | null
+          shipment_id: string
+          to_driver?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          from_driver?: string | null
+          handshake_time?: string | null
+          id?: string
+          ml_account_id?: string | null
+          owner_user_id?: string
+          raw_data?: Json | null
+          shipment_id?: string
+          to_driver?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flex_handshake_logs_ml_account_id_fkey"
+            columns: ["ml_account_id"]
+            isOneToOne: false
+            referencedRelation: "ml_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -458,6 +548,73 @@ export type Database = {
           },
           {
             foreignKeyName: "scan_logs_ml_account_id_fkey"
+            columns: ["ml_account_id"]
+            isOneToOne: false
+            referencedRelation: "ml_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_alerts: {
+        Row: {
+          alert_type: string
+          carrier_id: string | null
+          created_at: string | null
+          detected_at: string | null
+          driver_id: string | null
+          id: string
+          ml_account_id: string | null
+          notes: string | null
+          owner_user_id: string
+          resolved_at: string | null
+          shipment_id: string
+          status: string | null
+        }
+        Insert: {
+          alert_type: string
+          carrier_id?: string | null
+          created_at?: string | null
+          detected_at?: string | null
+          driver_id?: string | null
+          id?: string
+          ml_account_id?: string | null
+          notes?: string | null
+          owner_user_id: string
+          resolved_at?: string | null
+          shipment_id: string
+          status?: string | null
+        }
+        Update: {
+          alert_type?: string
+          carrier_id?: string | null
+          created_at?: string | null
+          detected_at?: string | null
+          driver_id?: string | null
+          id?: string
+          ml_account_id?: string | null
+          notes?: string | null
+          owner_user_id?: string
+          resolved_at?: string | null
+          shipment_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_alerts_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_alerts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_alerts_ml_account_id_fkey"
             columns: ["ml_account_id"]
             isOneToOne: false
             referencedRelation: "ml_accounts"

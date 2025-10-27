@@ -8,9 +8,11 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Envios from "./pages/Envios";
 import Motoristas from "./pages/Motoristas";
+import Transportadoras from "./pages/Transportadoras";
 import VincularVenda from "./pages/VincularVenda";
 import Bipagem from "./pages/Bipagem";
 import Pendencias from "./pages/Pendencias";
+import Alertas from "./pages/Alertas";
 import ConfigML from "./pages/ConfigML";
 import NotFound from "./pages/NotFound";
 
@@ -28,9 +30,11 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/envios" element={<Envios />} />
           <Route path="/motoristas" element={<Motoristas />} />
+          <Route path="/transportadoras" element={<Transportadoras />} />
           <Route path="/vincular" element={<VincularVenda />} />
           <Route path="/bipagem" element={<Bipagem />} />
           <Route path="/pendencias" element={<Pendencias />} />
+          <Route path="/alertas" element={<Alertas />} />
           <Route path="/config-ml" element={<ConfigML />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

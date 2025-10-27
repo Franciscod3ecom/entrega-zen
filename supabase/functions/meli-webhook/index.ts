@@ -65,6 +65,8 @@ async function processWebhook(body: any) {
       await processShipment(resource, ownerUserId, mlUserId, mlAccountId);
     } else if (topic === 'orders' || topic === 'marketplace_orders') {
       await processOrder(resource, ownerUserId, mlUserId, mlAccountId);
+    } else if (topic === 'flex_handshakes') {
+      await processFlexHandshake(resource, ownerUserId, mlUserId, mlAccountId);
     }
 
     console.log('Webhook processado com sucesso para usuário:', ownerUserId);
@@ -107,6 +109,38 @@ async function processShipment(resource: string, ownerUserId: string, mlUserId: 
       });
 
     console.log('Shipment cacheado:', shipmentId, 'para usuário:', ownerUserId);
+
+    // FASE 2: Detectar not_delivered e criar alerta
+    if (shipmentData.status === 'not_delivered') {
+      console.log('Shipment não entregue detectado:', shipmentId);
+      
+      // Buscar assignment do motorista
+      const { data: assignment } = await supabase
+        .from('driver_assignments')
+        .select('*, drivers!inner(*, carrier_id)')
+        .eq('shipment_id', shipmentId.toString())
+        .eq('owner_user_id', ownerUserId)
+        .is('returned_at', null)
+        .maybeSingle();
+
+      if (assignment) {
+        console.log('Criando alerta para shipment não entregue:', shipmentId);
+        await supabase.from('shipment_alerts').upsert({
+          owner_user_id: ownerUserId,
+          ml_account_id: mlAccountId,
+          shipment_id: shipmentId.toString(),
+          driver_id: assignment.driver_id,
+          carrier_id: assignment.drivers?.carrier_id || null,
+          alert_type: 'not_delivered_awaiting_return',
+          status: 'pending',
+          notes: `Status: ${shipmentData.status}, Substatus: ${shipmentData.substatus || 'N/A'}`,
+          detected_at: new Date().toISOString()
+        }, {
+          onConflict: 'shipment_id',
+          ignoreDuplicates: false
+        });
+      }
+    }
   } catch (error: any) {
     console.error('Erro ao processar shipment:', error);
     throw error;
@@ -145,6 +179,31 @@ async function processOrder(resource: string, ownerUserId: string, mlUserId: num
     console.log('Order processado:', orderId, 'para usuário:', ownerUserId);
   } catch (error: any) {
     console.error('Erro ao processar order:', error);
+    throw error;
+  }
+}
+
+// FASE 4: Processar handshakes do Flex (transferências entre entregadores)
+async function processFlexHandshake(resource: string, ownerUserId: string, mlUserId: number, mlAccountId: string) {
+  try {
+    console.log('Processando flex handshake:', resource, 'para usuário:', ownerUserId);
+    const handshakeData = await mlGet(resource, {}, mlUserId);
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    await supabase.from('flex_handshake_logs').insert({
+      owner_user_id: ownerUserId,
+      ml_account_id: mlAccountId,
+      shipment_id: handshakeData.shipment_id?.toString() || null,
+      from_driver: handshakeData.from_driver || null,
+      to_driver: handshakeData.to_driver || null,
+      handshake_time: handshakeData.timestamp || new Date().toISOString(),
+      raw_data: handshakeData
+    });
+
+    console.log('Flex handshake registrado:', handshakeData.shipment_id);
+  } catch (error: any) {
+    console.error('Erro ao processar flex handshake:', error);
     throw error;
   }
 }

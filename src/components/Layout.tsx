@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings, Scan } from "lucide-react";
+import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings, Scan, AlertTriangle, TruckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +53,15 @@ export default function Layout({ children }: LayoutProps) {
           Motoristas
         </Button>
       </Link>
+      <Link to="/transportadoras">
+        <Button
+          variant={location.pathname === "/transportadoras" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <TruckIcon className="mr-2 h-4 w-4" />
+          Transportadoras
+        </Button>
+      </Link>
       <Link to="/vincular">
         <Button
           variant={location.pathname === "/vincular" ? "default" : "ghost"}
@@ -78,6 +87,15 @@ export default function Layout({ children }: LayoutProps) {
         >
           <AlertCircle className="mr-2 h-4 w-4" />
           Pendências
+        </Button>
+      </Link>
+      <Link to="/alertas">
+        <Button
+          variant={location.pathname === "/alertas" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <AlertTriangle className="mr-2 h-4 w-4" />
+          Alertas
         </Button>
       </Link>
       <Link to="/config-ml">
