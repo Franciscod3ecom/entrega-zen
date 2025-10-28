@@ -10,7 +10,10 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<any>(null);
   const lastScannedRef = useRef<string>('');
+  const lastDecodeTimeRef = useRef<number>(0);
   const [error, setError] = useState<string>('');
+  
+  const decodeThrottleMs = 200; // Processar apenas 1 frame a cada 200ms
 
   useEffect(() => {
     if (!isActive) {
@@ -51,12 +54,30 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
 
         const selectedDeviceId = backCamera?.deviceId || videoInputDevices[0]?.deviceId;
 
-        // Iniciar decodificação contínua
+        // Configurar stream com resolução otimizada para mobile
+        const constraints = {
+          video: {
+            deviceId: selectedDeviceId,
+            width: { ideal: 720 },
+            height: { ideal: 480 },
+            facingMode: backCamera ? 'environment' : 'user'
+          }
+        };
+
+        // Iniciar decodificação contínua com throttle
         const controls = await codeReader.decodeFromVideoDevice(
           selectedDeviceId,
           videoRef.current!,
           (result, err) => {
+            // Throttle: processar apenas a cada 200ms
+            const now = Date.now();
+            if (now - lastDecodeTimeRef.current < decodeThrottleMs) {
+              return;
+            }
+            lastDecodeTimeRef.current = now;
+
             if (result) {
+              console.time('[Scanner] Decodificação QR');
               const code = result.getText();
               
               // Evitar processar o mesmo código consecutivamente
@@ -64,11 +85,12 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
                 lastScannedRef.current = code;
                 onScan(code);
                 
-                // Limpar após 2s para permitir re-escaneamento
+                // Limpar após 3s para permitir re-escaneamento
                 setTimeout(() => {
                   lastScannedRef.current = '';
-                }, 2000);
+                }, 3000);
               }
+              console.timeEnd('[Scanner] Decodificação QR');
             }
 
             // Silenciosamente ignorar erros de "não encontrado"
@@ -120,22 +142,19 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
       <video
         ref={videoRef}
         className="w-full h-full object-cover rounded-lg"
+        playsInline
+        muted
       />
       
-      {/* Overlay de guia */}
+      {/* Overlay de guia simplificado */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="relative border-4 border-primary rounded-lg w-64 aspect-square shadow-lg">
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
-          <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
-        </div>
+        <div className="border-2 border-primary rounded-lg w-48 h-48 opacity-80" />
       </div>
 
       {/* Instrução */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
-        <span className="bg-black/70 text-white px-4 py-2 rounded-full text-sm">
-          Posicione o QR Code no centro
+        <span className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs">
+          Posicione o QR no centro
         </span>
       </div>
     </div>

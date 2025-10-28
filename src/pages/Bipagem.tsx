@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,11 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
-import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users, ArrowRight, Package } from "lucide-react";
+import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users, ArrowRight, Package, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import BarcodeScanner from "@/components/BarcodeScanner";
-// Contextos removidos
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ScannedItem {
   code: string;
@@ -69,10 +69,12 @@ export default function Bipagem() {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 10000, // Atualizar a cada 10s
+    refetchInterval: isScanning ? false : 30000, // 30s quando não está escaneando
+    enabled: !isScanning, // Pausar durante scan ativo
   });
 
   const processCode = async (code: string, source: 'scanner' | 'manual' = 'scanner') => {
+    console.time(`[Bipagem] Processamento ${code.substring(0, 20)}`);
 
     // Bloqueio global: se já está processando, ignorar
     if (isProcessing) {
@@ -166,20 +168,14 @@ export default function Bipagem() {
         account_nickname: data.account_nickname,
       };
 
-      setScannedItems(prev => [scannedItem, ...prev.slice(0, 9)]); // Manter últimos 10
+      setScannedItems(prev => [scannedItem, ...prev.slice(0, 4)]); // Manter últimos 5
 
       toast({
         title: "✅ Vinculado!",
         description: data.account_nickname 
-          ? `Pacote ${data.shipment_id} encontrado na conta ${data.account_nickname}`
-          : `Pacote ${data.shipment_id} vinculado com sucesso`,
-        action: (
-          <Link to="/pendencias">
-            <Button variant="outline" size="sm">
-              Ver Pendências
-            </Button>
-          </Link>
-        ),
+          ? `Pacote ${data.shipment_id} - ${data.account_nickname}`
+          : `Pacote ${data.shipment_id} vinculado`,
+        duration: 2000, // Toast rápido
       });
 
       // Limpar campo manual
@@ -187,16 +183,22 @@ export default function Bipagem() {
         setManualCode("");
       }
 
-      // Feedback sonoro/vibrátil de sucesso
+      // Feedback sonoro/vibrátil de sucesso (1 beep)
       if ('vibrate' in navigator) {
         navigator.vibrate(100);
       }
       
-      // Tentar tocar som de sucesso (se suportado)
+      // Som de sucesso mais claro com AudioContext
       try {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuFz/PKfCkFJ3fH7+CWQQ0VYLXn7bNgGAc8ktjxz3gqBSl7y/DNfy4FKHbH7+KQQwwWYbPp6K1aFws+ltPuzXkpBCp6y/DMfC0FJ3XG7uGPQw0WY7Tk6bJdGAY6ktfxz3kqBSl7y/DOfS0FKHbH7uKQQwwWYrTl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9XtznwpBCp6y/DMfS0FKHbH7uKQRA0WY7Tl6KxbFgtBl9Xt');
-        audio.volume = 0.3;
-        audio.play().catch(() => {});
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800;
+        gainNode.gain.value = 0.1;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
       } catch {}
 
     } catch (error: any) {
@@ -210,7 +212,7 @@ export default function Bipagem() {
         success: false,
       };
 
-      setScannedItems(prev => [failedItem, ...prev.slice(0, 9)]);
+      setScannedItems(prev => [failedItem, ...prev.slice(0, 4)]);
 
       // Mensagem de erro mais clara
       const errorMsg = error.message?.includes('não encontrado') || error.message?.includes('não corresponde')
@@ -221,12 +223,36 @@ export default function Bipagem() {
         title: "❌ Erro ao vincular",
         description: errorMsg,
         variant: "destructive",
+        duration: 3000,
       });
 
-      // Feedback de erro
+      // Feedback de erro (2 beeps)
       if ('vibrate' in navigator) {
         navigator.vibrate([100, 50, 100]);
       }
+      
+      // Som de erro
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 400;
+        gainNode.gain.value = 0.1;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.15);
+        setTimeout(() => {
+          const osc2 = audioContext.createOscillator();
+          const gain2 = audioContext.createGain();
+          osc2.connect(gain2);
+          gain2.connect(audioContext.destination);
+          osc2.frequency.value = 400;
+          gain2.gain.value = 0.1;
+          osc2.start();
+          osc2.stop(audioContext.currentTime + 0.15);
+        }, 150);
+      } catch {}
     } finally {
       // Registrar timestamp do processamento (sucesso ou erro) para cooldown
       recentShipmentsRef.current.set(shipmentId, Date.now());
@@ -234,6 +260,8 @@ export default function Bipagem() {
       // Limpar lock
       processingShipmentRef.current = null;
       setIsProcessing(false);
+      
+      console.timeEnd(`[Bipagem] Processamento ${code.substring(0, 20)}`);
     }
   };
 
@@ -254,12 +282,41 @@ export default function Bipagem() {
   };
 
   const selectedDriverData = drivers?.find(d => d.id === selectedDriver);
-
-  // States removidos
+  
+  // Contador de pacotes bipados com sucesso na sessão
+  const successCount = useMemo(() => 
+    scannedItems.filter(item => item.success).length, 
+    [scannedItems]
+  );
 
   return (
     <Layout>
       <div className="space-y-6">
+        {/* Banner Sticky com Contador */}
+        {isScanning && selectedDriverData && (
+          <div className="sticky top-0 z-50 bg-primary text-primary-foreground p-4 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Package className="h-5 w-5" />
+                <div>
+                  <div className="font-bold">{selectedDriverData.name}</div>
+                  <div className="text-sm opacity-90">
+                    {successCount} {successCount === 1 ? 'pacote bipado' : 'pacotes bipados'}
+                  </div>
+                </div>
+              </div>
+              <Button 
+                variant="secondary" 
+                size="sm"
+                onClick={() => setIsScanning(false)}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Parar
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div>
           <h1 className="text-3xl font-bold">Bipagem de Pacotes</h1>
           <p className="text-muted-foreground">
@@ -345,7 +402,7 @@ export default function Bipagem() {
                 <div className="border rounded-lg overflow-hidden bg-black">
                   <BarcodeScanner
                     onScan={handleScanResult}
-                    isActive={isScanning}
+                    isActive={isScanning && !isProcessing}
                   />
                 </div>
               )}
@@ -394,8 +451,8 @@ export default function Bipagem() {
           </Card>
         )}
 
-        {/* Últimas Bipagens */}
-        {recentScans && recentScans.length > 0 && (
+        {/* Últimas Bipagens - Ocultar durante scan ativo */}
+        {!isScanning && recentScans && recentScans.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -443,26 +500,34 @@ export default function Bipagem() {
           </Card>
         )}
 
-        {/* Histórico da Sessão */}
+        {/* Histórico da Sessão - Collapsible quando scanning */}
         {scannedItems.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico da Sessão</CardTitle>
-              <CardDescription>
-                Últimos {scannedItems.length} pacotes escaneados nesta sessão
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {scannedItems.map((item, idx) => (
-                  <div
-                    key={`${item.code}-${idx}`}
-                    className={`p-3 rounded-lg border flex items-center justify-between transition-all ${
-                      item.success 
-                        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 animate-in fade-in slide-in-from-top-2'
-                        : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 animate-in fade-in shake'
-                    }`}
-                  >
+          <Collapsible defaultOpen={!isScanning}>
+            <Card>
+              <CardHeader>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
+                    <div className="text-left">
+                      <CardTitle>Histórico da Sessão</CardTitle>
+                      <CardDescription>
+                        Últimos {scannedItems.length} pacotes escaneados
+                      </CardDescription>
+                    </div>
+                  </Button>
+                </CollapsibleTrigger>
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent>
+                  <div className="space-y-2">
+                    {scannedItems.map((item, idx) => (
+                      <div
+                        key={`${item.code}-${idx}`}
+                        className={`p-3 rounded-lg border flex items-center justify-between transition-opacity ${
+                          item.success 
+                            ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 animate-in fade-in duration-200'
+                            : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 animate-in fade-in duration-200'
+                        }`}
+                      >
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
                         {item.success ? (
@@ -490,7 +555,9 @@ export default function Bipagem() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
         )}
       </div>
     </Layout>
