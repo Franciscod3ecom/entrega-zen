@@ -115,17 +115,60 @@ serve(async (req) => {
       throw dbError;
     }
 
-    console.log('Conta ML salva com sucesso no banco para owner_user_id:', state.owner_user_id);
+    console.log('✅ Conta ML vinculada com sucesso!');
 
-    // Redirecionar para página de sucesso
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ae36497b-ab18-4e78-bc0b-f6436f4288a0.lovableproject.com';
-    const redirectUrl = `${frontendUrl}/config-ml?ml_connected=true`;
-    
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': redirectUrl,
-      },
+    // Retornar HTML que fecha a aba automaticamente
+    const successHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Autenticação Concluída</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+          }
+          .container {
+            padding: 2rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+          }
+          h1 { margin: 0 0 1rem 0; }
+          p { margin: 0; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>✅ Autenticação Concluída!</h1>
+          <p>Conta do Mercado Livre conectada com sucesso.</p>
+          <p>Esta janela será fechada automaticamente...</p>
+        </div>
+        <script>
+          // Sinalizar para a janela principal (se possível)
+          if (window.opener) {
+            window.opener.postMessage({ type: 'ML_AUTH_SUCCESS' }, '*');
+          }
+          
+          // Fechar janela após 2 segundos
+          setTimeout(() => {
+            window.close();
+          }, 2000);
+        </script>
+      </body>
+      </html>
+    `;
+
+    return new Response(successHtml, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      status: 200,
     });
   } catch (error: any) {
     console.error('Erro em meli-callback:', error);

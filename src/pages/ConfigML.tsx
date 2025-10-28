@@ -39,6 +39,25 @@ export default function ConfigML() {
         variant: "destructive",
       });
     }
+
+    // Listener para mensagens da janela OAuth
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'ML_AUTH_SUCCESS') {
+        console.log('Recebeu confirmação de autenticação ML');
+        toast({
+          title: "Sucesso!",
+          description: "Conta do Mercado Livre conectada!",
+        });
+        checkConnection();
+        setIsLoading(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
   }, [searchParams]);
 
   const checkConnection = async () => {
@@ -91,8 +110,24 @@ export default function ConfigML() {
       }
 
       if (data?.authorization_url) {
-        console.log('Redirecionando para autorização ML...');
-        window.location.href = data.authorization_url;
+        console.log('Abrindo autorização ML em nova aba...');
+        
+        // Abrir OAuth em nova aba (contorna o Auth Bridge)
+        const authWindow = window.open(data.authorization_url, '_blank');
+        
+        if (!authWindow) {
+          throw new Error('Pop-up bloqueado! Habilite pop-ups para este site.');
+        }
+        
+        // Monitorar quando a aba OAuth é fechada para atualizar a lista
+        const checkInterval = setInterval(() => {
+          if (authWindow.closed) {
+            clearInterval(checkInterval);
+            console.log('Janela OAuth fechada, atualizando lista de contas...');
+            checkConnection();
+            setIsLoading(false);
+          }
+        }, 1000);
       } else {
         throw new Error('URL de autorização não recebida da API');
       }
