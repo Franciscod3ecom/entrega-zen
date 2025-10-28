@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { mlGet } from "../_shared/ml-client.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,11 +34,24 @@ serve(async (req) => {
 
     const owner_user_id = user.id;
     
-    const { driver_id, shipment_id } = await req.json();
+    // Validação de entrada com Zod
+    const scanBindAutoSchema = z.object({
+      driver_id: z.string().uuid('driver_id deve ser um UUID válido'),
+      shipment_id: z.string().regex(/^\d+$/, 'shipment_id deve ser numérico').max(20, 'shipment_id muito longo')
+    });
 
-    if (!driver_id || !shipment_id) {
-      throw new Error('driver_id e shipment_id são obrigatórios');
+    const body = await req.json();
+    const validationResult = scanBindAutoSchema.safeParse(body);
+    
+    if (!validationResult.success) {
+      const errorMessage = validationResult.error.errors[0].message;
+      return new Response(
+        JSON.stringify({ success: false, error: errorMessage }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
     }
+
+    const { driver_id, shipment_id } = validationResult.data;
 
     console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (owner: ${owner_user_id})`);
 

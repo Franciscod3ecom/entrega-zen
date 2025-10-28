@@ -1,16 +1,63 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { mlGet } from '../_shared/ml-client.ts';
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ML_CLIENT_SECRET = Deno.env.get('ML_CLIENT_SECRET')!;
+
+async function verifyWebhookSignature(body: string, signature: string | null): Promise<boolean> {
+  if (!signature || !ML_CLIENT_SECRET) {
+    return false;
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(ML_CLIENT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signatureData = await crypto.subtle.sign(
+      'HMAC',
+      key,
+      encoder.encode(body)
+    );
+    
+    const expectedSignature = Array.from(new Uint8Array(signatureData))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    return signature === expectedSignature;
+  } catch (error) {
+    console.error('Erro ao verificar assinatura:', error);
+    return false;
+  }
+}
 
 serve(async (req) => {
   try {
-    // ACK 200 IMEDIATO - crítico!
-    const body = await req.json();
+    // Ler body como texto para verificação de assinatura
+    const rawBody = await req.text();
+    const signature = req.headers.get('x-signature');
     
-    console.log('Webhook recebido:', body);
+    // Validar assinatura HMAC
+    const isValid = await verifyWebhookSignature(rawBody, signature);
+    
+    if (!isValid) {
+      console.error('[webhook] Assinatura inválida - requisição rejeitada');
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = JSON.parse(rawBody);
+    console.log('Webhook recebido e validado:', body);
 
     // Processar assincronamente
     processWebhook(body).catch(error => {
