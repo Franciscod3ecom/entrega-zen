@@ -121,124 +121,22 @@ serve(async (req) => {
 
     console.log('✅ Conta ML vinculada com sucesso!');
 
-    // Retornar HTML que fecha a aba automaticamente
-    const successHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Autenticacao Concluida</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      text-align: center;
-    }
-    .container {
-      padding: 2rem;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-    }
-    h1 { margin: 0 0 1rem 0; }
-    p { margin: 0; opacity: 0.9; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>✅ Autenticacao Concluida!</h1>
-    <p>Conta do Mercado Livre conectada com sucesso.</p>
-    <p>Esta janela sera fechada automaticamente...</p>
-  </div>
-  <script>
-    if (window.opener) {
-      window.opener.postMessage({ type: 'ML_AUTH_SUCCESS' }, '*');
-    }
-    setTimeout(() => window.close(), 2000);
-  </script>
-</body>
-</html>`;
-
-    return new Response(successHtml, {
-      headers: { 
-        'Content-Type': 'text/html; charset=UTF-8',
-        'Content-Language': 'pt-BR'
+    // Redirecionar para aplicação com status de sucesso
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': `https://rastreioflex.lovable.app/config-ml?status=success&nickname=${encodeURIComponent(userData.nickname)}`,
       },
-      status: 200,
     });
   } catch (error: any) {
     console.error('Erro em meli-callback:', error);
     
-    // Retornar HTML de erro visual que auto-fecha
-    const errorHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Erro na Autenticacao</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      color: white;
-      text-align: center;
-    }
-    .container {
-      padding: 2rem;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      max-width: 500px;
-    }
-    h1 { margin: 0 0 1rem 0; }
-    p { margin: 0.5rem 0; opacity: 0.9; font-size: 0.95rem; }
-    .error-detail { 
-      background: rgba(0,0,0,0.2); 
-      padding: 1rem; 
-      border-radius: 8px; 
-      margin-top: 1rem;
-      font-size: 0.85rem;
-      font-family: monospace;
-      word-break: break-word;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>❌ Erro na Autenticacao</h1>
-    <p>Nao foi possivel conectar sua conta do Mercado Livre.</p>
-    <div class="error-detail">${error.message}</div>
-    <p style="margin-top: 1.5rem; font-size: 0.85rem;">
-      Esta janela sera fechada automaticamente em 5 segundos...
-    </p>
-  </div>
-  <script>
-    if (window.opener) {
-      window.opener.postMessage({ 
-        type: 'ML_AUTH_ERROR',
-        error: ${JSON.stringify(error.message)}
-      }, '*');
-    }
-    setTimeout(() => window.close(), 5000);
-  </script>
-</body>
-</html>`;
-
-    return new Response(errorHtml, {
-      headers: { 
-        'Content-Type': 'text/html; charset=UTF-8',
-        'Content-Language': 'pt-BR'
+    // Redirecionar para aplicação com status de erro
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': `https://rastreioflex.lovable.app/config-ml?status=error&message=${encodeURIComponent(error.message)}`,
       },
-      status: 200,
     });
   }
 });

@@ -20,52 +20,36 @@ export default function ConfigML() {
   useEffect(() => {
     checkConnection();
 
-    // Verificar parâmetros de retorno do OAuth
-    const mlConnected = searchParams.get('ml_connected');
-    const mlError = searchParams.get('ml_error');
+    // Verificar parâmetros de retorno do OAuth (redirect 302)
+    const status = searchParams.get('status');
+    const nickname = searchParams.get('nickname');
+    const message = searchParams.get('message');
 
-    if (mlConnected === 'true') {
+    if (status === 'success') {
       toast({
-        title: "Sucesso!",
-        description: "Conta do Mercado Livre conectada com sucesso!",
+        title: "✅ Sucesso!",
+        description: nickname 
+          ? `Conta ${nickname} conectada com sucesso!`
+          : "Conta do Mercado Livre conectada!",
       });
+      
+      // Limpar URL params
+      window.history.replaceState({}, '', '/config-ml');
+      
+      // Atualizar lista
       checkConnection();
-    }
-
-    if (mlError) {
+      setIsLoading(false);
+    } else if (status === 'error') {
       toast({
-        title: "Erro na conexão",
-        description: decodeURIComponent(mlError),
+        title: "❌ Erro na Autenticação",
+        description: message || "Não foi possível conectar a conta.",
         variant: "destructive",
       });
+      
+      // Limpar URL params
+      window.history.replaceState({}, '', '/config-ml');
+      setIsLoading(false);
     }
-
-    // Listener para mensagens da janela OAuth
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'ML_AUTH_SUCCESS') {
-        console.log('Recebeu confirmação de autenticação ML');
-        toast({
-          title: "Sucesso!",
-          description: "Conta do Mercado Livre conectada!",
-        });
-        checkConnection();
-        setIsLoading(false);
-      } else if (event.data?.type === 'ML_AUTH_ERROR') {
-        console.error('Erro recebido da janela OAuth:', event.data.error);
-        toast({
-          title: "Erro na Autenticação",
-          description: event.data.error,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
   }, [searchParams]);
 
   const checkConnection = async () => {
@@ -118,24 +102,10 @@ export default function ConfigML() {
       }
 
       if (data?.authorization_url) {
-        console.log('Abrindo autorização ML em nova aba...');
+        console.log('Redirecionando para autorização ML...');
         
-        // Abrir OAuth em nova aba (contorna o Auth Bridge)
-        const authWindow = window.open(data.authorization_url, '_blank');
-        
-        if (!authWindow) {
-          throw new Error('Pop-up bloqueado! Habilite pop-ups para este site.');
-        }
-        
-        // Monitorar quando a aba OAuth é fechada para atualizar a lista
-        const checkInterval = setInterval(() => {
-          if (authWindow.closed) {
-            clearInterval(checkInterval);
-            console.log('Janela OAuth fechada, atualizando lista de contas...');
-            checkConnection();
-            setIsLoading(false);
-          }
-        }, 1000);
+        // Redirecionar diretamente na mesma aba
+        window.location.href = data.authorization_url;
       } else {
         throw new Error('URL de autorização não recebida da API');
       }
