@@ -26,7 +26,7 @@ export async function getValidToken(mlUserId: number): Promise<MLToken> {
   const { data: account, error } = await supabase
     .from('ml_accounts')
     .select('*')
-    .eq('ml_user_id', mlUserId)
+    .eq('ml_user_id', Number(mlUserId))
     .maybeSingle();
 
   if (error || !account) {

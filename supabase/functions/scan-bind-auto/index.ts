@@ -77,7 +77,7 @@ serve(async (req) => {
       try {
         console.log(`[scan-bind-auto] Tentando conta ${account.nickname} (${account.ml_user_id})...`);
         
-        const data = await mlGet(`/shipments/${shipment_id}`, {}, account.ml_user_id);
+        const data = await mlGet(`/shipments/${shipment_id}`, {}, Number(account.ml_user_id));
         
         if (data && data.id) {
           shipmentData = data;
