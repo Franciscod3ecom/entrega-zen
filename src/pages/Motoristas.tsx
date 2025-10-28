@@ -189,14 +189,16 @@ export default function Motoristas() {
                 <div className="space-y-2">
                   <Label htmlFor="carrier">Transportadora</Label>
                   <Select 
-                    value={newDriver.carrier_id} 
-                    onValueChange={(value) => setNewDriver({ ...newDriver, carrier_id: value })}
+                    value={newDriver.carrier_id || "none"}
+                    onValueChange={(value) =>
+                      setNewDriver({ ...newDriver, carrier_id: value === "none" ? "" : value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma transportadora (opcional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
+                      <SelectItem value="none">Nenhuma</SelectItem>
                       {carriers.map((carrier) => (
                         <SelectItem key={carrier.id} value={carrier.id}>
                           {carrier.name}
