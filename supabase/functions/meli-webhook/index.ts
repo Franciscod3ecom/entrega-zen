@@ -136,7 +136,7 @@ async function processShipment(resource: string, ownerUserId: string, mlUserId: 
           notes: `Status: ${shipmentData.status}, Substatus: ${shipmentData.substatus || 'N/A'}`,
           detected_at: new Date().toISOString()
         }, {
-          onConflict: 'shipment_id',
+          onConflict: 'owner_user_id,shipment_id,alert_type',
           ignoreDuplicates: false
         });
       }
