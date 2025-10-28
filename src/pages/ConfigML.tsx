@@ -50,6 +50,14 @@ export default function ConfigML() {
         });
         checkConnection();
         setIsLoading(false);
+      } else if (event.data?.type === 'ML_AUTH_ERROR') {
+        console.error('Erro recebido da janela OAuth:', event.data.error);
+        toast({
+          title: "Erro na Autenticação",
+          description: event.data.error,
+          variant: "destructive",
+        });
+        setIsLoading(false);
       }
     };
 

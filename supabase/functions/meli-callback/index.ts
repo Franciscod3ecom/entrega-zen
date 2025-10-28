@@ -13,6 +13,10 @@ serve(async (req) => {
     console.log('=== CALLBACK MERCADO LIVRE RECEBIDO ===');
     console.log('URL completa:', url.toString());
     console.log('Query params:', Object.fromEntries(url.searchParams.entries()));
+    console.log('=== DEBUG COMPLETO ===');
+    console.log('Method:', req.method);
+    console.log('Referer:', req.headers.get('referer'));
+    console.log('User-Agent:', req.headers.get('user-agent'));
     
     const code = url.searchParams.get('code');
     const stateParam = url.searchParams.get('state');
@@ -173,15 +177,71 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Erro em meli-callback:', error);
     
-    // Redirecionar para página de erro
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://ae36497b-ab18-4e78-bc0b-f6436f4288a0.lovableproject.com';
-    const errorUrl = `${frontendUrl}/config-ml?ml_error=${encodeURIComponent(error.message)}`;
-    
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': errorUrl,
-      },
+    // Retornar HTML de erro visual que auto-fecha
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Erro na Autenticação</title>
+        <style>
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            text-align: center;
+          }
+          .container {
+            padding: 2rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 500px;
+          }
+          h1 { margin: 0 0 1rem 0; }
+          p { margin: 0.5rem 0; opacity: 0.9; font-size: 0.95rem; }
+          .error-detail { 
+            background: rgba(0,0,0,0.2); 
+            padding: 1rem; 
+            border-radius: 8px; 
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            font-family: monospace;
+            word-break: break-word;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>❌ Erro na Autenticação</h1>
+          <p>Não foi possível conectar sua conta do Mercado Livre.</p>
+          <div class="error-detail">${error.message}</div>
+          <p style="margin-top: 1.5rem; font-size: 0.85rem;">
+            Esta janela será fechada automaticamente em 5 segundos...
+          </p>
+        </div>
+        <script>
+          // Sinalizar erro para janela principal
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: 'ML_AUTH_ERROR',
+              error: ${JSON.stringify(error.message)}
+            }, '*');
+          }
+          
+          setTimeout(() => window.close(), 5000);
+        </script>
+      </body>
+      </html>
+    `;
+
+    return new Response(errorHtml, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      status: 200,
     });
   }
 });
