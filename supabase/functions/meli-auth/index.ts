@@ -79,17 +79,14 @@ serve(async (req) => {
     console.log('Usuário autenticado:', user.id);
     
     // Criar state com owner_user_id e nonce para segurança
-    const stateData = {
-      owner_user_id: user.id,
-      nonce: crypto.randomUUID(),
-      exp: Date.now() + 10 * 60 * 1000, // 10 minutos
-    };
-    const state = btoa(JSON.stringify(stateData));
+    const nonce = crypto.randomUUID();
+    const exp = Date.now() + 10 * 60 * 1000; // 10 minutos
+    const state = `${user.id}|${nonce}|${exp}`;
     
     console.log('State gerado:', {
-      owner_user_id: stateData.owner_user_id,
-      nonce: stateData.nonce,
-      expira_em: new Date(stateData.exp).toISOString()
+      owner_user_id: user.id,
+      nonce: nonce,
+      expira_em: new Date(exp).toISOString()
     });
     
     const authUrl = new URL('https://auth.mercadolivre.com.br/authorization');
@@ -104,7 +101,7 @@ serve(async (req) => {
     console.log('==================================');
 
     return new Response(
-      JSON.stringify({ authorization_url: authUrl.toString() }),
+      JSON.stringify({ authUrl: authUrl.toString() }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

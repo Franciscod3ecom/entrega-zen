@@ -101,11 +101,11 @@ export default function ConfigML() {
         throw new Error(error.message || 'Erro ao iniciar processo de autorização');
       }
 
-      if (data?.authorization_url) {
+      if (data?.authUrl) {
         console.log('Redirecionando para autorização ML...');
         
         // Redirecionar diretamente na mesma aba
-        window.location.href = data.authorization_url;
+        window.location.href = data.authUrl;
       } else {
         throw new Error('URL de autorização não recebida da API');
       }

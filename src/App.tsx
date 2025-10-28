@@ -15,6 +15,7 @@ import Bipagem from "./pages/Bipagem";
 import Pendencias from "./pages/Pendencias";
 import Alertas from "./pages/Alertas";
 import ConfigML from "./pages/ConfigML";
+import MLCallback from "./pages/MLCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Auth />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/ml/callback" element={<MLCallback />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/envios" element={<ProtectedRoute><Envios /></ProtectedRoute>} />
           <Route path="/motoristas" element={<ProtectedRoute><Motoristas /></ProtectedRoute>} />
