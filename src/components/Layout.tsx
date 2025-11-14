@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings, Scan, AlertTriangle, TruckIcon } from "lucide-react";
+import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings, Scan, AlertTriangle, TruckIcon, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,15 @@ export default function Layout({ children }: LayoutProps) {
         >
           <LayoutDashboard className="mr-2 h-4 w-4" />
           Dashboard
+        </Button>
+      </Link>
+      <Link to="/rastreamento">
+        <Button
+          variant={location.pathname === "/rastreamento" ? "default" : "ghost"}
+          className="w-full justify-start"
+        >
+          <Route className="mr-2 h-4 w-4" />
+          Rastreamento
         </Button>
       </Link>
       <Link to="/envios">
