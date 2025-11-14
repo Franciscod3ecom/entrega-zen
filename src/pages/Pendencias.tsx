@@ -10,16 +10,14 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRT } from "@/lib/date-utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Loader2, RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
+import { Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 // Contextos removidos
 
 export default function Pendencias() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  // Contextos removidos
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
-  const [returningId, setReturningId] = useState<string | null>(null);
 
   const { data: pendencias, isLoading } = useQuery({
     queryKey: ['pendencias'],
@@ -90,35 +88,6 @@ export default function Pendencias() {
       });
     } finally {
       setRefreshingId(null);
-    }
-  };
-
-  const handleMarkReturned = async (assignmentId: string) => {
-    setReturningId(assignmentId);
-
-    try {
-      const { error } = await supabase
-        .from('driver_assignments')
-        .update({ returned_at: new Date().toISOString() })
-        .eq('id', assignmentId);
-
-      if (error) throw error;
-
-      await queryClient.invalidateQueries({ queryKey: ['pendencias'] });
-
-      toast({
-        title: "Sucesso",
-        description: "Envio marcado como devolvido ao estoque!",
-      });
-    } catch (error: any) {
-      console.error('Erro ao marcar devolução:', error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao marcar devolução",
-        variant: "destructive",
-      });
-    } finally {
-      setReturningId(null);
     }
   };
 
@@ -249,19 +218,6 @@ export default function Pendencias() {
                             <RefreshCw className="h-4 w-4" />
                           )}
                           <span className="ml-1 hidden sm:inline">Atualizar</span>
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleMarkReturned(pendencia.id)}
-                          disabled={returningId === pendencia.id}
-                        >
-                          {returningId === pendencia.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4" />
-                          )}
-                          <span className="ml-1">Devolvido</span>
                         </Button>
                       </TableCell>
                     </TableRow>

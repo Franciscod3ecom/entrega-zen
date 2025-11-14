@@ -27,12 +27,18 @@ interface Alert {
       name: string;
     } | null;
   } | null;
+  shipments_cache: {
+    order_id: string | null;
+    tracking_number: string | null;
+    raw_data: any;
+  } | null;
 }
 
 const Alertas = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [returningId, setReturningId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -51,7 +57,9 @@ const Alertas = () => {
   const loadAlerts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Buscar alertas com drivers
+      const { data: alertsData, error } = await supabase
         .from("shipment_alerts")
         .select(`
           *,
@@ -60,7 +68,25 @@ const Alertas = () => {
         .order("detected_at", { ascending: false });
 
       if (error) throw error;
-      setAlerts(data || []);
+      
+      // Buscar shipments_cache para os shipment_ids dos alertas
+      if (alertsData && alertsData.length > 0) {
+        const shipmentIds = alertsData.map(a => a.shipment_id);
+        const { data: shipmentsData } = await supabase
+          .from("shipments_cache")
+          .select("shipment_id, order_id, tracking_number, raw_data")
+          .in("shipment_id", shipmentIds);
+
+        // Fazer merge dos dados
+        const enrichedAlerts = alertsData.map(alert => ({
+          ...alert,
+          shipments_cache: shipmentsData?.find(s => s.shipment_id === alert.shipment_id) || null,
+        }));
+
+        setAlerts(enrichedAlerts);
+      } else {
+        setAlerts([]);
+      }
     } catch (error: any) {
       console.error("Erro ao carregar alertas:", error);
       toast({
@@ -104,13 +130,66 @@ const Alertas = () => {
     }
   };
 
+  const handleMarkReturned = async (shipmentId: string) => {
+    try {
+      setReturningId(shipmentId);
+      
+      // Buscar o assignment ativo para este shipment
+      const { data: assignment, error: fetchError } = await supabase
+        .from('driver_assignments')
+        .select('id')
+        .eq('shipment_id', shipmentId)
+        .is('returned_at', null)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!assignment) throw new Error('Assignment não encontrado');
+
+      const { error } = await supabase
+        .from('driver_assignments')
+        .update({ returned_at: new Date().toISOString() })
+        .eq('id', assignment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Envio marcado como devolvido ao estoque!",
+      });
+
+      loadAlerts();
+    } catch (error: any) {
+      console.error("Erro ao marcar devolução:", error);
+      toast({
+        title: "Erro ao marcar devolução",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setReturningId(null);
+    }
+  };
+
   const getAlertTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       not_delivered_awaiting_return: "Não entregue - Aguardando devolução",
       not_delivered_not_returned: "Não entregue e não devolvido (>48h)",
       missing_driver_info: "Informação de motorista ausente",
+      stuck_shipment: "Envio parado há mais de 48h",
+      ready_not_shipped: "Pronto mas não expedido há mais de 24h",
+      not_returned: "Com motorista há mais de 72h sem devolução",
     };
     return labels[type] || type;
+  };
+
+  const getClientName = (rawData: any) => {
+    try {
+      if (!rawData) return '-';
+      const receiver = rawData.receiver_address || rawData.shipping_option?.receiver_address;
+      return receiver?.receiver_name || '-';
+    } catch {
+      return '-';
+    }
   };
 
   const getStatusBadge = (status: string) => {

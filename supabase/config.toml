@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.refresh-shipment]
 verify_jwt = false
+
+[functions.auto-refresh-shipments]
+verify_jwt = false
+
+[functions.check-stuck-shipments]
+verify_jwt = false
