@@ -160,6 +160,13 @@ export type Database = {
             referencedRelation: "shipments_cache"
             referencedColumns: ["shipment_id"]
           },
+          {
+            foreignKeyName: "fk_driver_assignments_shipment"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "v_rastreamento_completo"
+            referencedColumns: ["shipment_id"]
+          },
         ]
       }
       driver_load_items: {
@@ -782,7 +789,44 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_rastreamento_completo: {
+        Row: {
+          alertas_ativos: number | null
+          assigned_at: string | null
+          assignment_id: string | null
+          cliente_nome: string | null
+          driver_id: string | null
+          last_ml_update: string | null
+          ml_account_id: string | null
+          motorista_nome: string | null
+          motorista_phone: string | null
+          order_id: string | null
+          owner_user_id: string | null
+          pack_id: string | null
+          returned_at: string | null
+          scanned_at: string | null
+          shipment_id: string | null
+          status: string | null
+          substatus: string | null
+          tracking_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipments_cache_ml_account_id_fkey"
+            columns: ["ml_account_id"]
+            isOneToOne: false
+            referencedRelation: "ml_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       assign_first_admin: { Args: never; Returns: undefined }
