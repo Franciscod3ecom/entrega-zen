@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Rastreamento from "./pages/Rastreamento";
 import Envios from "./pages/Envios";
 import Motoristas from "./pages/Motoristas";
 import Transportadoras from "./pages/Transportadoras";
@@ -62,6 +63,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/ml/callback" element={<MLCallback />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/rastreamento" element={<ProtectedRoute><Rastreamento /></ProtectedRoute>} />
           <Route path="/envios" element={<ProtectedRoute><Envios /></ProtectedRoute>} />
           <Route path="/motoristas" element={<ProtectedRoute><Motoristas /></ProtectedRoute>} />
           <Route path="/transportadoras" element={<ProtectedRoute><Transportadoras /></ProtectedRoute>} />
