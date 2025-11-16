@@ -40,17 +40,8 @@ export default function Layout({ children }: LayoutProps) {
           variant={location.pathname === "/rastreamento" ? "default" : "ghost"}
           className="w-full justify-start"
         >
-          <Route className="mr-2 h-4 w-4" />
-          Rastreamento
-        </Button>
-      </Link>
-      <Link to="/envios">
-        <Button
-          variant={location.pathname === "/envios" ? "default" : "ghost"}
-          className="w-full justify-start"
-        >
           <Package className="mr-2 h-4 w-4" />
-          Envios
+          Rastreamento de Envios
         </Button>
       </Link>
       <Link to="/motoristas">
@@ -87,15 +78,6 @@ export default function Layout({ children }: LayoutProps) {
         >
           <Scan className="mr-2 h-4 w-4" />
           Bipagem
-        </Button>
-      </Link>
-      <Link to="/pendencias">
-        <Button
-          variant={location.pathname === "/pendencias" ? "default" : "ghost"}
-          className="w-full justify-start"
-        >
-          <AlertCircle className="mr-2 h-4 w-4" />
-          Pendências
         </Button>
       </Link>
       <Link to="/alertas">

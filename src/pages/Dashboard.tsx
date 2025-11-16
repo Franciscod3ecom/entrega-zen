@@ -4,9 +4,10 @@ import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2 } from "lucide-react";
+import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface DashboardStats {
   totalShipments: number;
@@ -14,6 +15,9 @@ interface DashboardStats {
   inRoute: number;
   notDelivered: number;
   toReturn: number;
+  alertsPending: number;
+  alertsInvestigating: number;
+  alertsResolved: number;
 }
 
 export default function Dashboard() {
@@ -24,7 +28,12 @@ export default function Dashboard() {
     inRoute: 0,
     notDelivered: 0,
     toReturn: 0,
+    alertsPending: 0,
+    alertsInvestigating: 0,
+    alertsResolved: 0,
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCheckingProblems, setIsCheckingProblems] = useState(false);
 
   const { data: pendenciasData } = useQuery({
     queryKey: ['dashboard-pendencias'],
@@ -63,15 +72,25 @@ export default function Dashboard() {
   }, [navigate]);
 
   const loadStats = async () => {
+    // Usar shipments_cache ao invés de shipments
     const { data: shipments } = await supabase
-      .from("shipments")
+      .from("shipments_cache")
       .select("status, substatus");
 
     if (shipments) {
       const delivered = shipments.filter((s) => s.status === "delivered").length;
-      const inRoute = shipments.filter((s) => s.status === "in_transit").length;
+      const inRoute = shipments.filter((s) => ["shipped", "out_for_delivery"].includes(s.status)).length;
       const notDelivered = shipments.filter((s) => s.status === "not_delivered").length;
       const toReturn = shipments.filter((s) => s.substatus === "returning_to_sender").length;
+
+      // Buscar alertas
+      const { data: alerts } = await supabase
+        .from("shipment_alerts")
+        .select("status");
+
+      const alertsPending = alerts?.filter((a) => a.status === "pending").length || 0;
+      const alertsInvestigating = alerts?.filter((a) => a.status === "investigating").length || 0;
+      const alertsResolved = alerts?.filter((a) => a.status === "resolved").length || 0;
 
       setStats({
         totalShipments: shipments.length,
@@ -79,7 +98,44 @@ export default function Dashboard() {
         inRoute,
         notDelivered,
         toReturn,
+        alertsPending,
+        alertsInvestigating,
+        alertsResolved,
       });
+    }
+  };
+
+  const handleAutoRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("auto-refresh-shipments");
+      
+      if (error) throw error;
+
+      toast.success(`✅ ${data.updated || 0} envios atualizados, ${data.errors || 0} erros`);
+      await loadStats();
+    } catch (error: any) {
+      console.error("Erro ao atualizar:", error);
+      toast.error(error.message || "Erro ao atualizar status");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleCheckProblems = async () => {
+    setIsCheckingProblems(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-stuck-shipments");
+      
+      if (error) throw error;
+
+      toast.success(`🔍 ${data.alertsCreated || 0} novos alertas criados`);
+      await loadStats();
+    } catch (error: any) {
+      console.error("Erro ao verificar problemas:", error);
+      toast.error(error.message || "Erro ao verificar problemas");
+    } finally {
+      setIsCheckingProblems(false);
     }
   };
 
@@ -155,6 +211,39 @@ export default function Dashboard() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          {/* Card de Alertas */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-danger" />
+                Alertas Ativos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-3xl font-bold text-danger">{stats.alertsPending}</div>
+                    <p className="text-xs text-muted-foreground">Pendentes</p>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-secondary">{stats.alertsInvestigating}</div>
+                    <p className="text-xs text-muted-foreground">Em Investigação</p>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-success">{stats.alertsResolved}</div>
+                    <p className="text-xs text-muted-foreground">Resolvidos</p>
+                  </div>
+                </div>
+                
+                <Button asChild className="w-full">
+                  <Link to="/alertas">Ver Todos os Alertas →</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card de Pendências */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -185,7 +274,7 @@ export default function Dashboard() {
                   )}
 
                   <Button asChild className="w-full mt-4">
-                    <Link to="/pendencias">Ver Detalhes →</Link>
+                    <Link to="/rastreamento?tab=pendentes">Ver Detalhes →</Link>
                   </Button>
                 </div>
               ) : (
@@ -196,18 +285,67 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Atividade Recente</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center text-muted-foreground py-8">
-                Os eventos mais recentes aparecerão aqui
-              </div>
-            </CardContent>
-          </Card>
         </div>
+
+        {/* Card de Manutenção do Sistema */}
+        <Card className="border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Manutenção do Sistema
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Execute essas ações periodicamente para manter os dados atualizados
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Button
+                onClick={handleAutoRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-5 w-5" />
+                )}
+                <div className="text-left">
+                  <div className="font-semibold">Atualizar Status</div>
+                  <div className="text-xs text-muted-foreground font-normal">
+                    Consulta ML API e atualiza até 100 envios ativos
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={handleCheckProblems}
+                disabled={isCheckingProblems}
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2"
+              >
+                {isCheckingProblems ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Search className="h-5 w-5" />
+                )}
+                <div className="text-left">
+                  <div className="font-semibold">Verificar Problemas</div>
+                  <div className="text-xs text-muted-foreground font-normal">
+                    Detecta envios parados, não devolvidos e cria alertas
+                  </div>
+                </div>
+              </Button>
+            </div>
+            
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                💡 <strong>Recomendação:</strong> Execute "Atualizar Status" a cada 2-4 horas e "Verificar Problemas" 1x por dia
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );
