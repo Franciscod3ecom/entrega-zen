@@ -7,9 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle2, Clock, Package } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Package, Filter, Loader2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Alert {
@@ -39,6 +41,7 @@ const Alertas = () => {
   const [loading, setLoading] = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -210,9 +213,20 @@ const Alertas = () => {
     );
   };
 
-  const pendingCount = alerts.filter(a => a.status === "pending").length;
-  const investigatingCount = alerts.filter(a => a.status === "investigating").length;
-  const resolvedCount = alerts.filter(a => a.status === "resolved").length;
+  const pendingCount = alerts.filter(a => a.status === "pending" && (typeFilter === "all" || a.alert_type === typeFilter)).length;
+  const investigatingCount = alerts.filter(a => a.status === "investigating" && (typeFilter === "all" || a.alert_type === typeFilter)).length;
+  const resolvedCount = alerts.filter(a => a.status === "resolved" && (typeFilter === "all" || a.alert_type === typeFilter)).length;
+
+  // Filtrar alertas por tipo
+  const filteredAlerts = typeFilter === "all" 
+    ? alerts 
+    : alerts.filter(a => a.alert_type === typeFilter);
+
+  // Função para determinar se o alerta é crítico (48h+)
+  const isCriticalAlert = (detectedAt: string) => {
+    const hours = (Date.now() - new Date(detectedAt).getTime()) / (1000 * 60 * 60);
+    return hours >= 48;
+  };
 
   return (
     <Layout>
@@ -222,6 +236,26 @@ const Alertas = () => {
           <p className="text-muted-foreground mt-2">
             Monitoramento de pacotes não entregues e não devolvidos
           </p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Filtro por tipo de alerta */}
+          <div className="flex items-center gap-4">
+            <Filter className="h-5 w-5 text-muted-foreground" />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[300px]">
+                <SelectValue placeholder="Filtrar por tipo de alerta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="stuck_shipment">Envio parado 48h+</SelectItem>
+                <SelectItem value="ready_not_shipped">Pronto não expedido 24h+</SelectItem>
+                <SelectItem value="not_returned">Com motorista 72h+ sem devolução</SelectItem>
+                <SelectItem value="not_delivered_awaiting_return">Não entregue - Aguardando devolução</SelectItem>
+                <SelectItem value="not_delivered_not_returned">Não entregue e não devolvido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -276,10 +310,10 @@ const Alertas = () => {
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : alerts.length === 0 ? (
+            ) : filteredAlerts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-secondary" />
-                <p>Nenhum alerta no momento</p>
+                <p>Nenhum alerta {typeFilter !== "all" ? "deste tipo" : "no momento"}</p>
               </div>
             ) : (
               <div className="rounded-md border">
@@ -287,6 +321,9 @@ const Alertas = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Shipment ID</TableHead>
+                      <TableHead>Pedido ML</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Rastreio</TableHead>
                       <TableHead>Tipo de Alerta</TableHead>
                       <TableHead>Motorista/Transportadora</TableHead>
                       <TableHead>Status</TableHead>
@@ -295,47 +332,109 @@ const Alertas = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {alerts.map((alert) => (
-                      <TableRow key={alert.id}>
-                        <TableCell className="font-mono text-sm">
-                          {alert.shipment_id}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {getAlertTypeLabel(alert.alert_type)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <div className="font-medium">
-                              {alert.drivers?.name || "N/A"}
+                    {filteredAlerts.map((alert) => {
+                      const isCritical = isCriticalAlert(alert.detected_at);
+                      const clientName = getClientName(alert.shipments_cache?.raw_data);
+                      
+                      return (
+                        <TableRow key={alert.id} className={isCritical ? "bg-red-500/5" : ""}>
+                          <TableCell className="font-mono text-sm">
+                            <div className="flex items-center gap-2">
+                              {alert.shipment_id}
+                              {isCritical && (
+                                <Badge variant="destructive" className="text-xs">Crítico</Badge>
+                              )}
                             </div>
-                            {alert.drivers?.carriers?.name && (
-                              <div className="text-xs text-muted-foreground">
-                                {alert.drivers.carriers.name}
-                              </div>
+                          </TableCell>
+                          <TableCell className="font-mono font-medium">
+                            {alert.shipments_cache?.order_id ? (
+                              <a
+                                href={`https://www.mercadolivre.com.br/vendas/${alert.shipments_cache.order_id}/detalhe`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-primary hover:underline"
+                                title="Abrir pedido no Mercado Livre"
+                              >
+                                #{alert.shipments_cache.order_id}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              "N/A"
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(alert.status)}</TableCell>
-                        <TableCell className="text-sm">
-                          {format(new Date(alert.detected_at), "dd/MM/yyyy HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {alert.status === "pending" && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleResolve(alert.id)}
-                              disabled={resolvingId === alert.id}
-                            >
-                              {resolvingId === alert.id
-                                ? "Resolvendo..."
-                                : "Marcar como Resolvido"}
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="max-w-[150px] truncate" title={clientName}>
+                            {clientName}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {alert.shipments_cache?.tracking_number || "N/A"}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {getAlertTypeLabel(alert.alert_type)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                {alert.drivers?.name || "N/A"}
+                              </div>
+                              {alert.drivers?.carriers?.name && (
+                                <div className="text-xs text-muted-foreground">
+                                  {alert.drivers.carriers.name}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(alert.status)}</TableCell>
+                          <TableCell className="text-sm">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="cursor-help">
+                                    {formatDistanceToNow(new Date(alert.detected_at), {
+                                      addSuffix: true,
+                                      locale: ptBR,
+                                    })}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-mono text-xs">
+                                    {format(new Date(alert.detected_at), "dd/MM/yyyy HH:mm", {
+                                      locale: ptBR,
+                                    })}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              {alert.status === "pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleMarkReturned(alert.shipment_id)}
+                                    disabled={returningId === alert.shipment_id}
+                                  >
+                                    {returningId === alert.shipment_id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      "Devolvido"
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleResolve(alert.id)}
+                                    disabled={resolvingId === alert.id}
+                                  >
+                                    {resolvingId === alert.id ? "Resolvendo..." : "Resolver"}
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
