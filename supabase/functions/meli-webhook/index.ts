@@ -136,6 +136,25 @@ async function processShipment(resource: string, ownerUserId: string, mlUserId: 
     console.log('Buscando shipment:', shipmentId, 'para usuário:', ownerUserId, 'ml_user:', mlUserId);
     const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, mlUserId);
 
+    // FASE 1.2: Enriquecer com dados do comprador via /orders
+    if (shipmentData.order_id) {
+      try {
+        const orderData = await mlGet(`/orders/${shipmentData.order_id}`, {}, mlUserId);
+        console.log('Dados do pedido obtidos para enriquecimento');
+        
+        // Adicionar dados do comprador ao shipmentData
+        shipmentData.buyer_info = {
+          name: `${orderData.buyer?.first_name || ''} ${orderData.buyer?.last_name || ''}`.trim(),
+          nickname: orderData.buyer?.nickname || null,
+          city: orderData.shipping?.receiver_address?.city?.name || null,
+          state: orderData.shipping?.receiver_address?.state?.name || null,
+        };
+      } catch (orderError) {
+        console.error('Erro ao buscar dados do pedido:', orderError);
+        // Continuar mesmo se falhar
+      }
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     await supabase

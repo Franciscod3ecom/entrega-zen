@@ -139,6 +139,39 @@ export default function Dashboard() {
     }
   };
 
+  const handleSyncOrders = async () => {
+    setIsRefreshing(true);
+    try {
+      // Buscar primeira conta ML do usuário
+      const { data: mlAccount } = await supabase
+        .from('ml_accounts')
+        .select('ml_user_id')
+        .limit(1)
+        .maybeSingle();
+
+      if (!mlAccount) {
+        toast.error('Nenhuma conta ML conectada');
+        return;
+      }
+
+      toast.info('Importando histórico de pedidos... Isso pode levar alguns minutos.');
+
+      const { data, error } = await supabase.functions.invoke("sync-orders-initial", {
+        body: { ml_user_id: mlAccount.ml_user_id }
+      });
+      
+      if (error) throw error;
+
+      toast.success(`✅ ${data.imported || 0} pedidos importados, ${data.errors || 0} erros`);
+      await loadStats();
+    } catch (error: any) {
+      console.error("Erro ao importar histórico:", error);
+      toast.error(error.message || "Erro ao importar histórico");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const statCards = [
     {
       title: "Total de Envios",
@@ -333,7 +366,26 @@ export default function Dashboard() {
                 <div className="text-left">
                   <div className="font-semibold">Verificar Problemas</div>
                   <div className="text-xs text-muted-foreground font-normal">
-                    Detecta envios parados, não devolvidos e cria alertas
+                    Detecta envios parados e cria alertas automáticos
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={handleSyncOrders}
+                disabled={isRefreshing}
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2 md:col-span-2"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-5 w-5" />
+                )}
+                <div className="text-left">
+                  <div className="font-semibold">Importar Histórico de Pedidos</div>
+                  <div className="text-xs text-muted-foreground font-normal">
+                    Sincroniza pedidos passados do Mercado Livre (até 200 pedidos)
                   </div>
                 </div>
               </Button>
