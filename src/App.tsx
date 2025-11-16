@@ -8,13 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Rastreamento from "./pages/Rastreamento";
-import Envios from "./pages/Envios";
 import Motoristas from "./pages/Motoristas";
 import Transportadoras from "./pages/Transportadoras";
 import VincularVenda from "./pages/VincularVenda";
 import Bipagem from "./pages/Bipagem";
-import Pendencias from "./pages/Pendencias";
 import Alertas from "./pages/Alertas";
+import Ajuda from "./pages/Ajuda";
 import ConfigML from "./pages/ConfigML";
 import MLCallback from "./pages/MLCallback";
 import NotFound from "./pages/NotFound";
@@ -64,14 +63,16 @@ const App = () => (
           <Route path="/ml/callback" element={<MLCallback />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/rastreamento" element={<ProtectedRoute><Rastreamento /></ProtectedRoute>} />
-          <Route path="/envios" element={<ProtectedRoute><Envios /></ProtectedRoute>} />
+          {/* Redirects das telas antigas para a nova tela unificada */}
+          <Route path="/envios" element={<Navigate to="/rastreamento" replace />} />
+          <Route path="/pendencias" element={<Navigate to="/rastreamento" replace />} />
           <Route path="/motoristas" element={<ProtectedRoute><Motoristas /></ProtectedRoute>} />
           <Route path="/transportadoras" element={<ProtectedRoute><Transportadoras /></ProtectedRoute>} />
           <Route path="/vincular" element={<ProtectedRoute><VincularVenda /></ProtectedRoute>} />
           <Route path="/bipagem" element={<ProtectedRoute><Bipagem /></ProtectedRoute>} />
-          <Route path="/pendencias" element={<ProtectedRoute><Pendencias /></ProtectedRoute>} />
           <Route path="/alertas" element={<ProtectedRoute><Alertas /></ProtectedRoute>} />
           <Route path="/config-ml" element={<ProtectedRoute><ConfigML /></ProtectedRoute>} />
+          <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
