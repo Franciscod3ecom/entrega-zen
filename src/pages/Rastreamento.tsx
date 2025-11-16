@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -42,6 +43,8 @@ interface RastreamentoItem {
   motorista_phone: string | null;
   alertas_ativos: number;
   assignment_id: string | null;
+  ml_account_id: string | null;
+  owner_user_id: string | null;
 }
 
 export default function Rastreamento() {
@@ -72,10 +75,13 @@ export default function Rastreamento() {
   const loadData = async () => {
     setLoading(true);
     
-    // Carregar rastreamento
+    // Carregar rastreamento com dados adicionais para UX
     const { data: rastreamentoData, error: rastreamentoError } = await supabase
       .from("v_rastreamento_completo")
-      .select("*")
+      .select(`
+        *,
+        shipments_cache!inner(raw_data, ml_account_id, owner_user_id)
+      `)
       .order("last_ml_update", { ascending: false });
 
     if (rastreamentoError) {
@@ -151,8 +157,23 @@ export default function Rastreamento() {
     setRefreshingId(shipmentId);
 
     try {
+      // FASE 1.1: Buscar ml_user_id antes de chamar a função
+      const { data: shipmentData, error: fetchError } = await supabase
+        .from('shipments_cache')
+        .select('ml_account_id, ml_accounts!inner(ml_user_id)')
+        .eq('shipment_id', shipmentId)
+        .single();
+
+      if (fetchError || !shipmentData) {
+        throw new Error('Não foi possível buscar dados do envio');
+      }
+
+      // Chamar função com ambos os parâmetros necessários
       const { error } = await supabase.functions.invoke("refresh-shipment", {
-        body: { shipment_id: shipmentId },
+        body: { 
+          shipment_id: shipmentId,
+          ml_user_id: shipmentData.ml_accounts.ml_user_id 
+        },
       });
 
       if (error) throw error;
@@ -293,6 +314,7 @@ export default function Rastreamento() {
                     <TableHead>Pedido ML</TableHead>
                     <TableHead>Shipment ID</TableHead>
                     <TableHead>Cliente</TableHead>
+                    <TableHead>Cidade/Estado</TableHead>
                     <TableHead>Rastreio</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Motorista</TableHead>

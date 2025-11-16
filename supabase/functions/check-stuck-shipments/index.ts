@@ -32,9 +32,17 @@ serve(async (req) => {
     const hours48Ago = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
     const finalStatuses = ['delivered', 'not_delivered', 'cancelled', 'returned_to_sender'];
 
+    // FASE 2.1: Buscar com LEFT JOIN para incluir driver se houver
     const { data: stuckShipments } = await supabase
       .from('shipments_cache')
-      .select('shipment_id, owner_user_id, ml_account_id, status, last_ml_update')
+      .select(`
+        shipment_id, 
+        owner_user_id, 
+        ml_account_id, 
+        status, 
+        last_ml_update,
+        driver_assignments!left(driver_id, returned_at)
+      `)
       .not('status', 'in', `(${finalStatuses.join(',')})`)
       .lt('last_ml_update', hours48Ago);
 
@@ -42,6 +50,11 @@ serve(async (req) => {
       console.log(`[check-stuck-shipments] Encontrados ${stuckShipments.length} envios parados 48h+`);
       
       for (const shipment of stuckShipments) {
+        // FASE 2.1: Pegar driver_id se houver assignment ativo
+        const activeAssignment = Array.isArray(shipment.driver_assignments) 
+          ? shipment.driver_assignments.find((a: any) => !a.returned_at)
+          : null;
+
         // Verificar se já existe alerta ativo para este shipment
         const { data: existingAlert } = await supabase
           .from('shipment_alerts')
@@ -57,7 +70,7 @@ serve(async (req) => {
             shipment_id: shipment.shipment_id,
             owner_user_id: shipment.owner_user_id,
             ml_account_id: shipment.ml_account_id,
-            driver_id: null,
+            driver_id: activeAssignment?.driver_id || null,
             reason: `Envio sem atualização há mais de 48 horas (última atualização: ${shipment.last_ml_update})`,
           });
         }
@@ -67,9 +80,16 @@ serve(async (req) => {
     // 2. PRONTOS MAS NÃO EXPEDIDOS (24h+ com status ready_to_ship sem motorista)
     const hours24Ago = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
+    // FASE 2.1: Buscar com LEFT JOIN para incluir driver
     const { data: readyNotShipped } = await supabase
       .from('shipments_cache')
-      .select('shipment_id, owner_user_id, ml_account_id, created_at')
+      .select(`
+        shipment_id, 
+        owner_user_id, 
+        ml_account_id, 
+        created_at,
+        driver_assignments!left(id, driver_id, returned_at)
+      `)
       .eq('status', 'ready_to_ship')
       .lt('created_at', hours24Ago);
 
@@ -77,14 +97,15 @@ serve(async (req) => {
       console.log(`[check-stuck-shipments] Encontrados ${readyNotShipped.length} envios prontos não expedidos 24h+`);
       
       for (const shipment of readyNotShipped) {
-        // Verificar se tem assignment
-        const { data: assignment } = await supabase
-          .from('driver_assignments')
-          .select('id')
-          .eq('shipment_id', shipment.shipment_id)
-          .single();
+        // FASE 2.1: Verificar se tem assignment ativo
+        const hasActiveAssignment = Array.isArray(shipment.driver_assignments) &&
+          shipment.driver_assignments.some((a: any) => a.id && !a.returned_at);
+        
+        const activeAssignment = Array.isArray(shipment.driver_assignments)
+          ? shipment.driver_assignments.find((a: any) => !a.returned_at)
+          : null;
 
-        if (!assignment) {
+        if (!hasActiveAssignment) {
           // Verificar se já existe alerta ativo
           const { data: existingAlert } = await supabase
             .from('shipment_alerts')
@@ -100,7 +121,7 @@ serve(async (req) => {
               shipment_id: shipment.shipment_id,
               owner_user_id: shipment.owner_user_id,
               ml_account_id: shipment.ml_account_id,
-              driver_id: null,
+              driver_id: activeAssignment?.driver_id || null,
               reason: `Envio pronto há mais de 24 horas mas não foi atribuído a motorista (criado em: ${shipment.created_at})`,
             });
           }
