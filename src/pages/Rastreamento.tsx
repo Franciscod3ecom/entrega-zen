@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
+import ShipmentHistoryModal from "@/components/ShipmentHistoryModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
@@ -23,7 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, RefreshCw, Loader2, ExternalLink, TrendingUp, AlertTriangle, Truck, CheckCircle } from "lucide-react";
+import { Search, Package, RefreshCw, Loader2, ExternalLink, TrendingUp, AlertTriangle, Truck, CheckCircle, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatBRT } from "@/lib/date-utils";
@@ -39,6 +40,8 @@ interface RastreamentoItem {
   substatus: string | null;
   last_ml_update: string;
   cliente_nome: string;
+  cidade: string | null;
+  estado: string | null;
   motorista_nome: string | null;
   motorista_phone: string | null;
   alertas_ativos: number;
@@ -57,6 +60,7 @@ export default function Rastreamento() {
   const [activeTab, setActiveTab] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string }>>([]);
+  const [historyModal, setHistoryModal] = useState<{ isOpen: boolean; shipmentId: string; mlUserId: number } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -325,7 +329,7 @@ export default function Rastreamento() {
                 <TableBody>
                   {filteredItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         <Package className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
                         <p className="text-muted-foreground">
                           {searchTerm || driverFilter !== "all"
@@ -358,8 +362,13 @@ export default function Rastreamento() {
                         <TableCell className="font-mono text-sm">
                           {item.shipment_id}
                         </TableCell>
-                        <TableCell className="max-w-[150px] truncate">
+                         <TableCell className="max-w-[150px] truncate">
                           {item.cliente_nome}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {item.cidade && item.estado 
+                            ? `${item.cidade}/${item.estado}`
+                            : item.cidade || item.estado || "-"}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {item.tracking_number || "-"}
@@ -408,20 +417,48 @@ export default function Rastreamento() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRefresh(item.shipment_id)}
-                            disabled={refreshingId === item.shipment_id}
-                            title="Atualizar status agora"
-                          >
-                            {refreshingId === item.shipment_id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-4 w-4" />
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRefresh(item.shipment_id)}
+                              disabled={refreshingId === item.shipment_id}
+                              title="Atualizar status agora"
+                            >
+                              {refreshingId === item.shipment_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                              <span className="ml-1 hidden sm:inline">Atualizar</span>
+                            </Button>
+                            
+                            {item.ml_account_id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  // Buscar ml_user_id da conta
+                                  const { data: mlAccount } = await supabase
+                                    .from('ml_accounts')
+                                    .select('ml_user_id')
+                                    .eq('id', item.ml_account_id)
+                                    .single();
+                                  
+                                  if (mlAccount) {
+                                    setHistoryModal({
+                                      isOpen: true,
+                                      shipmentId: item.shipment_id,
+                                      mlUserId: mlAccount.ml_user_id,
+                                    });
+                                  }
+                                }}
+                                title="Ver histórico do envio"
+                              >
+                                <History className="h-4 w-4" />
+                              </Button>
                             )}
-                            <span className="ml-1 hidden sm:inline">Atualizar</span>
-                          </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -432,6 +469,16 @@ export default function Rastreamento() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal de Histórico */}
+      {historyModal && (
+        <ShipmentHistoryModal
+          isOpen={historyModal.isOpen}
+          onClose={() => setHistoryModal(null)}
+          shipmentId={historyModal.shipmentId}
+          mlUserId={historyModal.mlUserId}
+        />
+      )}
     </Layout>
   );
 }

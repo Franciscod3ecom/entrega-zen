@@ -794,8 +794,10 @@ export type Database = {
           alertas_ativos: number | null
           assigned_at: string | null
           assignment_id: string | null
+          cidade: string | null
           cliente_nome: string | null
           driver_id: string | null
+          estado: string | null
           last_ml_update: string | null
           ml_account_id: string | null
           motorista_nome: string | null
