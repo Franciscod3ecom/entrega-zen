@@ -18,10 +18,25 @@ serve(async (req) => {
     console.log('Referer:', req.headers.get('referer'));
     console.log('User-Agent:', req.headers.get('user-agent'));
     
-    const code = url.searchParams.get('code');
-    const stateParam = url.searchParams.get('state');
-    const error = url.searchParams.get('error');
-    const errorDescription = url.searchParams.get('error_description');
+    // Tentar obter code e state via query params (GET) ou body (POST)
+    let code = url.searchParams.get('code');
+    let stateParam = url.searchParams.get('state');
+    let error = url.searchParams.get('error');
+    let errorDescription = url.searchParams.get('error_description');
+
+    // Se não vier via query params, tentar body (ML às vezes envia via POST)
+    if ((!code || !stateParam) && req.method === 'POST') {
+      try {
+        const body = await req.json();
+        code = code || body.code;
+        stateParam = stateParam || body.state;
+        error = error || body.error;
+        errorDescription = errorDescription || body.error_description;
+        console.log('Params obtidos do body:', { code: !!code, state: !!stateParam });
+      } catch (e) {
+        console.log('Não foi possível parsear body como JSON');
+      }
+    }
 
     if (error) {
       console.error('ERRO retornado pelo Mercado Livre:', error, errorDescription);
