@@ -79,13 +79,10 @@ export default function Rastreamento() {
   const loadData = async () => {
     setLoading(true);
     
-    // Carregar rastreamento com dados adicionais para UX
+    // Carregar rastreamento da view (já inclui todos os dados necessários)
     const { data: rastreamentoData, error: rastreamentoError } = await supabase
       .from("v_rastreamento_completo")
-      .select(`
-        *,
-        shipments_cache!inner(raw_data, ml_account_id, owner_user_id)
-      `)
+      .select("*")
       .order("last_ml_update", { ascending: false });
 
     if (rastreamentoError) {
@@ -433,31 +430,36 @@ export default function Rastreamento() {
                               <span className="ml-1 hidden sm:inline">Atualizar</span>
                             </Button>
                             
-                            {item.ml_account_id && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  // Buscar ml_user_id da conta
-                                  const { data: mlAccount } = await supabase
-                                    .from('ml_accounts')
-                                    .select('ml_user_id')
-                                    .eq('id', item.ml_account_id)
-                                    .single();
-                                  
-                                  if (mlAccount) {
-                                    setHistoryModal({
-                                      isOpen: true,
-                                      shipmentId: item.shipment_id,
-                                      mlUserId: mlAccount.ml_user_id,
-                                    });
-                                  }
-                                }}
-                                title="Ver histórico do envio"
-                              >
-                                <History className="h-4 w-4" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                if (!item.ml_account_id) {
+                                  toast.error("Conta ML não encontrada para este envio");
+                                  return;
+                                }
+                                
+                                // Buscar ml_user_id da conta
+                                const { data: mlAccount } = await supabase
+                                  .from('ml_accounts')
+                                  .select('ml_user_id')
+                                  .eq('id', item.ml_account_id)
+                                  .maybeSingle();
+                                
+                                if (mlAccount) {
+                                  setHistoryModal({
+                                    isOpen: true,
+                                    shipmentId: item.shipment_id,
+                                    mlUserId: mlAccount.ml_user_id,
+                                  });
+                                } else {
+                                  toast.error("Não foi possível obter dados da conta ML");
+                                }
+                              }}
+                              title="Ver histórico do envio"
+                            >
+                              <History className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
