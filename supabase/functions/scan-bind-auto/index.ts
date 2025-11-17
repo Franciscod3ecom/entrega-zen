@@ -109,20 +109,45 @@ serve(async (req) => {
     const order_id = shipmentData.order_id ? String(shipmentData.order_id) : null;
     const now = new Date().toISOString();
 
-    // 5. Upsert em shipments_cache
+    // 5. Buscar dados atuais do cache para merge inteligente
+    const { data: currentCache } = await supabase
+      .from('shipments_cache')
+      .select('*')
+      .eq('shipment_id', String(shipment_id))
+      .maybeSingle();
+
+    // 6. Fazer MERGE inteligente
+    const mergedData = {
+      shipment_id: String(shipment_id),
+      owner_user_id: owner_user_id,
+      ml_account_id: foundAccount.id,
+      
+      // ✅ Preservar dados existentes se API retornar null
+      order_id: order_id || currentCache?.order_id || null,
+      tracking_number: tracking || currentCache?.tracking_number || null,
+      
+      status,
+      substatus,
+      
+      // ✅ Merge de raw_data
+      raw_data: {
+        ...(currentCache?.raw_data as Record<string, any> || {}),
+        ...shipmentData,
+        _scan_bind_at: now,
+      },
+      
+      last_ml_update: now,
+    };
+
+    console.log('[scan-bind-auto] Merge inteligente:', {
+      preservou_order: mergedData.order_id === currentCache?.order_id,
+      preservou_tracking: mergedData.tracking_number === currentCache?.tracking_number,
+    });
+
+    // 7. Upsert em shipments_cache com dados mesclados
     const { error: cacheError } = await supabase
       .from('shipments_cache')
-      .upsert({
-        shipment_id: String(shipment_id),
-        owner_user_id: owner_user_id,
-        ml_account_id: foundAccount.id,
-        status,
-        substatus,
-        tracking_number: tracking,
-        order_id,
-        last_ml_update: now,
-        raw_data: shipmentData,
-      }, {
+      .upsert(mergedData, {
         onConflict: 'shipment_id'
       });
 

@@ -40,21 +40,77 @@ serve(async (req) => {
     // Buscar dados atualizados do shipment
     const shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, ml_user_id);
 
-    // Atualizar cache
+    // 1. Buscar dados ATUAIS do cache para merge inteligente
+    const { data: currentCache } = await supabase
+      .from('shipments_cache')
+      .select('*')
+      .eq('shipment_id', shipment_id)
+      .maybeSingle();
+
+    console.log('📥 Dados atuais do cache:', {
+      order_id: currentCache?.order_id,
+      pack_id: currentCache?.pack_id,
+      tracking: currentCache?.tracking_number,
+    });
+
+    console.log('📦 Dados da API ML:', {
+      order_id: shipmentData.order_id,
+      pack_id: shipmentData.pack_id,
+      tracking: shipmentData.tracking_number,
+      status: shipmentData.status,
+    });
+
+    // 2. Fazer MERGE inteligente - preserva dados existentes se API retornar null
+    const mergedData = {
+      shipment_id: shipment_id,
+      owner_user_id: mlAccount.owner_user_id,
+      ml_account_id: mlAccount.id,
+      
+      // ✅ Manter dados existentes se API retornar null
+      order_id: shipmentData.order_id 
+        ? String(shipmentData.order_id) 
+        : (currentCache?.order_id || null),
+        
+      pack_id: shipmentData.pack_id 
+        ? String(shipmentData.pack_id) 
+        : (currentCache?.pack_id || null),
+        
+      tracking_number: shipmentData.tracking_number 
+        || currentCache?.tracking_number 
+        || null,
+      
+      // ✅ Status sempre atualiza (fonte de verdade)
+      status: shipmentData.status || shipmentData.substatus || 'unknown',
+      substatus: shipmentData.status_history?.substatus || null,
+      
+      // ✅ Merge de raw_data (preserva campos antigos + adiciona novos)
+      raw_data: {
+        ...(currentCache?.raw_data as Record<string, any> || {}),
+        ...shipmentData,
+        _last_refresh: new Date().toISOString(),
+        _preserved_from_cache: currentCache ? {
+          order_id: currentCache.order_id,
+          pack_id: currentCache.pack_id,
+          tracking_number: currentCache.tracking_number,
+        } : null,
+      },
+      
+      last_ml_update: new Date().toISOString(),
+    };
+
+    console.log('✅ Dados mesclados:', {
+      order_id: mergedData.order_id,
+      pack_id: mergedData.pack_id,
+      tracking: mergedData.tracking_number,
+      preservou_order: mergedData.order_id === currentCache?.order_id,
+      preservou_pack: mergedData.pack_id === currentCache?.pack_id,
+      preservou_tracking: mergedData.tracking_number === currentCache?.tracking_number,
+    });
+
+    // 3. Atualizar cache com dados mesclados
     const { error: updateError } = await supabase
       .from('shipments_cache')
-      .upsert({
-        shipment_id: shipment_id,
-        owner_user_id: mlAccount.owner_user_id,
-        ml_account_id: mlAccount.id,
-        order_id: shipmentData.order_id ? shipmentData.order_id.toString() : null,
-        pack_id: shipmentData.pack_id ? shipmentData.pack_id.toString() : null,
-        status: shipmentData.status || shipmentData.substatus || 'unknown',
-        substatus: shipmentData.status_history?.substatus || null,
-        tracking_number: shipmentData.tracking_number || null,
-        last_ml_update: new Date().toISOString(),
-        raw_data: shipmentData,
-      }, {
+      .upsert(mergedData, {
         onConflict: 'shipment_id',
       });
 
