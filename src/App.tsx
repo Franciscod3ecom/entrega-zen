@@ -7,12 +7,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Rastreamento from "./pages/Rastreamento";
+import OperacoesUnificadas from "./pages/OperacoesUnificadas";
 import Motoristas from "./pages/Motoristas";
 import Transportadoras from "./pages/Transportadoras";
 import VincularVenda from "./pages/VincularVenda";
 import Bipagem from "./pages/Bipagem";
-import Alertas from "./pages/Alertas";
 import Ajuda from "./pages/Ajuda";
 import ConfigML from "./pages/ConfigML";
 import MLCallback from "./pages/MLCallback";
@@ -62,15 +61,16 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/ml/callback" element={<MLCallback />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/rastreamento" element={<ProtectedRoute><Rastreamento /></ProtectedRoute>} />
+          <Route path="/operacoes" element={<ProtectedRoute><OperacoesUnificadas /></ProtectedRoute>} />
           {/* Redirects das telas antigas para a nova tela unificada */}
-          <Route path="/envios" element={<Navigate to="/rastreamento" replace />} />
-          <Route path="/pendencias" element={<Navigate to="/rastreamento" replace />} />
+          <Route path="/rastreamento" element={<Navigate to="/operacoes" replace />} />
+          <Route path="/alertas" element={<Navigate to="/operacoes" replace />} />
+          <Route path="/envios" element={<Navigate to="/operacoes" replace />} />
+          <Route path="/pendencias" element={<Navigate to="/operacoes" replace />} />
           <Route path="/motoristas" element={<ProtectedRoute><Motoristas /></ProtectedRoute>} />
           <Route path="/transportadoras" element={<ProtectedRoute><Transportadoras /></ProtectedRoute>} />
           <Route path="/vincular" element={<ProtectedRoute><VincularVenda /></ProtectedRoute>} />
           <Route path="/bipagem" element={<ProtectedRoute><Bipagem /></ProtectedRoute>} />
-          <Route path="/alertas" element={<ProtectedRoute><Alertas /></ProtectedRoute>} />
           <Route path="/config-ml" element={<ProtectedRoute><ConfigML /></ProtectedRoute>} />
           <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
