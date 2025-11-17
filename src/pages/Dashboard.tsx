@@ -8,6 +8,7 @@ import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, 
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import DiagnosticReportModal from "@/components/DiagnosticReportModal";
 
 interface DashboardStats {
   totalShipments: number;
@@ -34,6 +35,8 @@ export default function Dashboard() {
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCheckingProblems, setIsCheckingProblems] = useState(false);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [diagnosticReport, setDiagnosticReport] = useState<any>(null);
 
   const { data: pendenciasData } = useQuery({
     queryKey: ['dashboard-pendencias'],
@@ -172,6 +175,25 @@ export default function Dashboard() {
     }
   };
 
+  const handleDiagnoseAlerts = async () => {
+    setIsDiagnosing(true);
+    try {
+      toast.info('🔍 Analisando inconsistências...');
+
+      const { data, error } = await supabase.functions.invoke("diagnose-alerts");
+      
+      if (error) throw error;
+
+      setDiagnosticReport(data.report);
+      toast.success('✅ Diagnóstico concluído!');
+    } catch (error: any) {
+      console.error("Erro no diagnóstico:", error);
+      toast.error(error.message || "Erro ao executar diagnóstico");
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
+
   const statCards = [
     {
       title: "Total de Envios",
@@ -211,10 +233,11 @@ export default function Dashboard() {
   ];
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+    <>
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
             Visão geral das entregas Mercado Envios Flex
           </p>
@@ -375,7 +398,7 @@ export default function Dashboard() {
                 onClick={handleSyncOrders}
                 disabled={isRefreshing}
                 variant="outline"
-                className="h-auto py-6 flex-col items-start gap-2 md:col-span-2"
+                className="h-auto py-6 flex-col items-start gap-2"
               >
                 {isRefreshing ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -386,6 +409,25 @@ export default function Dashboard() {
                   <div className="font-semibold">Importar Histórico de Pedidos</div>
                   <div className="text-xs text-muted-foreground font-normal">
                     Sincroniza pedidos passados do Mercado Livre (até 200 pedidos)
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                onClick={handleDiagnoseAlerts}
+                disabled={isDiagnosing}
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2"
+              >
+                {isDiagnosing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-orange-500" />
+                )}
+                <div className="text-left">
+                  <div className="font-semibold">Diagnosticar Inconsistências</div>
+                  <div className="text-xs text-muted-foreground font-normal">
+                    Identifica alertas órfãos, duplicados e envios finalizados
                   </div>
                 </div>
               </Button>
@@ -400,5 +442,15 @@ export default function Dashboard() {
         </Card>
       </div>
     </Layout>
+
+    {/* Modal de Relatório de Diagnóstico */}
+    {diagnosticReport && (
+      <DiagnosticReportModal
+        open={!!diagnosticReport}
+        onOpenChange={(open) => !open && setDiagnosticReport(null)}
+        report={diagnosticReport}
+      />
+    )}
+  </>
   );
 }

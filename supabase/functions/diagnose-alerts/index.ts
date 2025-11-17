@@ -116,24 +116,32 @@ serve(async (req) => {
     console.log(`🔄 Alertas duplicados: ${duplicateAlerts?.length || 0}`);
 
     // 5. Detectar alertas em envios já finalizados
-    const { data: alertsOnDelivered } = await supabase
+    // Primeiro buscar todos os alertas pendentes
+    const { data: pendingAlertsData } = await supabase
       .from('shipment_alerts')
-      .select(`
-        sa.id,
-        sa.shipment_id,
-        sa.alert_type,
-        sa.detected_at,
-        sc.status,
-        sc.substatus,
-        sc.last_ml_update
-      `)
-      .from('shipment_alerts as sa')
-      .innerJoin('shipments_cache as sc', 'sa.shipment_id', 'sc.shipment_id')
-      .eq('sa.status', 'pending')
-      .in('sc.status', ['delivered', 'not_delivered']);
+      .select('id, shipment_id, alert_type, detected_at')
+      .eq('status', 'pending');
 
-    report.issues.alerts_on_delivered_shipments = alertsOnDelivered || [];
-    console.log(`✅ Alertas em envios finalizados: ${alertsOnDelivered?.length || 0}`);
+    // Buscar os status dos shipments correspondentes
+    const shipmentIds = pendingAlertsData?.map(a => a.shipment_id) || [];
+    const { data: finalizedShipments } = await supabase
+      .from('shipments_cache')
+      .select('shipment_id, status, substatus, last_ml_update')
+      .in('shipment_id', shipmentIds)
+      .in('status', ['delivered', 'not_delivered']);
+
+    // Combinar os dados
+    const alertsOnDelivered = pendingAlertsData
+      ?.filter(alert => 
+        finalizedShipments?.some(s => s.shipment_id === alert.shipment_id)
+      )
+      .map(alert => {
+        const shipment = finalizedShipments?.find(s => s.shipment_id === alert.shipment_id);
+        return { ...alert, ...shipment };
+      }) || [];
+
+    report.issues.alerts_on_delivered_shipments = alertsOnDelivered;
+    console.log(`✅ Alertas em envios finalizados: ${alertsOnDelivered.length}`);
 
     // 6. Detectar alertas com shipment_id que não existe mais
     const { data: alertsOnMissing } = await supabase

@@ -856,6 +856,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      identify_duplicate_alerts: {
+        Args: never
+        Returns: {
+          alert_type: string
+          count: number
+          duplicate_ids: string[]
+          oldest_alert_id: string
+          shipment_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "ops" | "driver"
