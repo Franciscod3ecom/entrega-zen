@@ -325,7 +325,7 @@ export default function Dashboard() {
                 </div>
                 
                 <Button asChild className="w-full">
-                  <Link to="/alertas">Ver Todos os Alertas →</Link>
+                  <Link to="/operacoes">Ver Operações Unificadas →</Link>
                 </Button>
               </div>
             </CardContent>

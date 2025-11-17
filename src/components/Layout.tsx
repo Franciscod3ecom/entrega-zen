@@ -35,13 +35,13 @@ export default function Layout({ children }: LayoutProps) {
           Dashboard
         </Button>
       </Link>
-      <Link to="/rastreamento">
+      <Link to="/operacoes">
         <Button
-          variant={location.pathname === "/rastreamento" ? "default" : "ghost"}
+          variant={location.pathname === "/operacoes" ? "default" : "ghost"}
           className="w-full justify-start"
         >
-          <Package className="mr-2 h-4 w-4" />
-          Rastreamento de Envios
+          <Route className="mr-2 h-4 w-4" />
+          Operações Unificadas
         </Button>
       </Link>
       <Link to="/motoristas">
@@ -78,15 +78,6 @@ export default function Layout({ children }: LayoutProps) {
         >
           <Scan className="mr-2 h-4 w-4" />
           Bipagem
-        </Button>
-      </Link>
-      <Link to="/alertas">
-        <Button
-          variant={location.pathname === "/alertas" ? "default" : "ghost"}
-          className="w-full justify-start"
-        >
-          <AlertTriangle className="mr-2 h-4 w-4" />
-          Alertas
         </Button>
       </Link>
       <Link to="/config-ml">

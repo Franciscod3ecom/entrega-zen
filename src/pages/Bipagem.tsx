@@ -491,8 +491,8 @@ export default function Bipagem() {
                 </Table>
               </div>
               <Button asChild variant="outline" className="w-full">
-                <Link to="/pendencias" className="flex items-center gap-2">
-                  Ver Todas as Pendências
+                <Link to="/operacoes" className="flex items-center gap-2">
+                  Ver Todas as Operações
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
