@@ -81,16 +81,46 @@ serve(async (req) => {
           
           const shipmentData = await mlGet(`/shipments/${shipment.shipment_id}`, {}, mlAccount.ml_user_id);
 
-          // Atualizar cache
+          // Buscar dados atuais para merge inteligente
+          const { data: currentCache } = await supabase
+            .from('shipments_cache')
+            .select('*')
+            .eq('shipment_id', shipment.shipment_id)
+            .maybeSingle();
+
+          // Merge inteligente - preserva dados existentes se API retornar null
+          const mergedData = {
+            // ✅ Preservar dados existentes se API retornar null
+            order_id: shipmentData.order_id 
+              ? String(shipmentData.order_id) 
+              : (currentCache?.order_id || null),
+              
+            pack_id: shipmentData.pack_id 
+              ? String(shipmentData.pack_id) 
+              : (currentCache?.pack_id || null),
+              
+            tracking_number: shipmentData.tracking_number 
+              || currentCache?.tracking_number 
+              || null,
+            
+            // ✅ Status sempre atualiza (fonte de verdade)
+            status: shipmentData.status || shipmentData.substatus || 'unknown',
+            substatus: shipmentData.status_history?.substatus || null,
+            
+            // ✅ Merge de raw_data
+            raw_data: {
+              ...(currentCache?.raw_data as Record<string, any> || {}),
+              ...shipmentData,
+              _auto_refresh_at: new Date().toISOString(),
+            },
+            
+            last_ml_update: new Date().toISOString(),
+          };
+
+          // Atualizar cache com merge
           const { error: updateError } = await supabase
             .from('shipments_cache')
-            .update({
-              status: shipmentData.status || shipmentData.substatus || 'unknown',
-              substatus: shipmentData.status_history?.substatus || null,
-              tracking_number: shipmentData.tracking_number || null,
-              last_ml_update: new Date().toISOString(),
-              raw_data: shipmentData,
-            })
+            .update(mergedData)
             .eq('shipment_id', shipment.shipment_id);
 
           if (updateError) {
