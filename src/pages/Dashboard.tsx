@@ -4,7 +4,7 @@ import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink } from "lucide-react";
+import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,6 +37,8 @@ export default function Dashboard() {
   const [isCheckingProblems, setIsCheckingProblems] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticReport, setDiagnosticReport] = useState<any>(null);
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<any>(null);
 
   const { data: pendenciasData } = useQuery({
     queryKey: ['dashboard-pendencias'],
@@ -177,6 +179,8 @@ export default function Dashboard() {
 
   const handleDiagnoseAlerts = async () => {
     setIsDiagnosing(true);
+    setDiagnosticReport(null);
+    setCleanupResult(null);
     try {
       toast.info('🔍 Analisando inconsistências...');
 
@@ -185,12 +189,40 @@ export default function Dashboard() {
       if (error) throw error;
 
       setDiagnosticReport(data.report);
-      toast.success('✅ Diagnóstico concluído!');
+      toast.success('✅ Diagnóstico concluído! Clique no botão para ver o relatório.');
     } catch (error: any) {
       console.error("Erro no diagnóstico:", error);
       toast.error(error.message || "Erro ao executar diagnóstico");
     } finally {
       setIsDiagnosing(false);
+    }
+  };
+
+  const handleCleanupAlerts = async () => {
+    setIsCleaning(true);
+    setCleanupResult(null);
+    try {
+      toast.info('🧹 Executando limpeza de inconsistências...');
+
+      const { data, error } = await supabase.functions.invoke("cleanup-alerts");
+      
+      if (error) throw error;
+
+      setCleanupResult(data.result);
+      toast.success(`✅ ${data.message}`);
+      
+      // Recarregar stats após limpeza
+      await loadStats();
+      
+      // Se o modal de diagnóstico estiver aberto, executar diagnóstico novamente
+      if (diagnosticReport) {
+        setTimeout(() => handleDiagnoseAlerts(), 1000);
+      }
+    } catch (error: any) {
+      console.error("Erro na limpeza:", error);
+      toast.error(error.message || "Erro ao executar limpeza");
+    } finally {
+      setIsCleaning(false);
     }
   };
 
@@ -431,6 +463,25 @@ export default function Dashboard() {
                   </div>
                 </div>
               </Button>
+
+              <Button
+                onClick={handleCleanupAlerts}
+                disabled={isCleaning || isDiagnosing}
+                variant="outline"
+                className="h-auto py-6 flex-col items-start gap-2 border-green-500/20 hover:bg-green-500/10"
+              >
+                {isCleaning ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-green-500" />
+                ) : (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                )}
+                <div className="text-left">
+                  <div className="font-semibold">Corrigir Inconsistências</div>
+                  <div className="text-xs text-muted-foreground font-normal">
+                    Remove órfãos, consolida duplicados e resolve finalizados
+                  </div>
+                </div>
+              </Button>
             </div>
             
             <div className="mt-4 p-3 bg-muted/50 rounded-lg">
@@ -449,6 +500,9 @@ export default function Dashboard() {
         open={!!diagnosticReport}
         onOpenChange={(open) => !open && setDiagnosticReport(null)}
         report={diagnosticReport}
+        cleanupResult={cleanupResult}
+        onCleanup={handleCleanupAlerts}
+        isCleaning={isCleaning}
       />
     )}
   </>

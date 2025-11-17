@@ -832,6 +832,20 @@ export type Database = {
     }
     Functions: {
       assign_first_admin: { Args: never; Returns: undefined }
+      cleanup_duplicate_alerts: {
+        Args: never
+        Returns: {
+          consolidated_count: number
+          deleted_ids: string[]
+        }[]
+      }
+      cleanup_orphaned_alerts: {
+        Args: never
+        Returns: {
+          deleted_count: number
+          deleted_ids: string[]
+        }[]
+      }
       get_pendencias_with_cache: {
         Args: never
         Returns: {
@@ -864,6 +878,22 @@ export type Database = {
           duplicate_ids: string[]
           oldest_alert_id: string
           shipment_id: string
+        }[]
+      }
+      resolve_alerts_on_delivered_shipments: {
+        Args: never
+        Returns: {
+          resolved_count: number
+          resolved_ids: string[]
+        }[]
+      }
+      sync_alert_counts: {
+        Args: never
+        Returns: {
+          delivered_resolved: number
+          duplicates_consolidated: number
+          orphaned_removed: number
+          total_cleaned: number
         }[]
       }
     }
