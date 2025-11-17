@@ -1,7 +1,8 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle, XCircle, AlertTriangle, Loader2, Sparkles } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -9,9 +10,19 @@ interface DiagnosticReportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   report: any;
+  cleanupResult?: any;
+  onCleanup?: () => void;
+  isCleaning?: boolean;
 }
 
-export default function DiagnosticReportModal({ open, onOpenChange, report }: DiagnosticReportModalProps) {
+export default function DiagnosticReportModal({ 
+  open, 
+  onOpenChange, 
+  report, 
+  cleanupResult,
+  onCleanup,
+  isCleaning = false 
+}: DiagnosticReportModalProps) {
   if (!report) return null;
 
   const hasIssues = 
@@ -193,6 +204,66 @@ export default function DiagnosticReportModal({ open, onOpenChange, report }: Di
               </ul>
             </CardContent>
           </Card>
+        )}
+
+        {/* Resultado da Limpeza */}
+        {cleanupResult && (
+          <Card className="border-green-500/50 bg-green-500/5">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-green-500" />
+                Resultado da Limpeza
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-center p-4 bg-background rounded-lg">
+                  <p className="text-2xl font-bold text-red-500">{cleanupResult.orphaned_removed}</p>
+                  <p className="text-xs text-muted-foreground">Órfãos Removidos</p>
+                </div>
+                <div className="text-center p-4 bg-background rounded-lg">
+                  <p className="text-2xl font-bold text-yellow-500">{cleanupResult.duplicates_consolidated}</p>
+                  <p className="text-xs text-muted-foreground">Duplicados Consolidados</p>
+                </div>
+                <div className="text-center p-4 bg-background rounded-lg col-span-2">
+                  <p className="text-2xl font-bold text-blue-500">{cleanupResult.delivered_resolved}</p>
+                  <p className="text-xs text-muted-foreground">Finalizados Resolvidos</p>
+                </div>
+              </div>
+              <div className="text-center py-4 border-t">
+                <p className="text-3xl font-bold text-green-500">{cleanupResult.total_cleaned}</p>
+                <p className="text-sm text-muted-foreground">Total de Itens Corrigidos</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Footer com Ações */}
+        {hasIssues && !cleanupResult && (
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+            {onCleanup && (
+              <Button 
+                onClick={onCleanup} 
+                disabled={isCleaning}
+                className="bg-green-500 hover:bg-green-600"
+              >
+                {isCleaning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Corrigindo...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Corrigir Agora
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>
