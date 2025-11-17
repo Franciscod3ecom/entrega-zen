@@ -158,26 +158,52 @@ serve(async (req) => {
 
     console.log(`[scan-bind-auto] ✓ Cache atualizado`);
 
-    // 6. Verificar se já existe assignment
-    const { data: existingAssignment } = await supabase
+    // 8. FASE 5.1: Verificar duplicatas - impedir que outro motorista tenha o mesmo pacote
+    const { data: anyAssignment } = await supabase
       .from('driver_assignments')
-      .select('*')
+      .select('*, driver:drivers(name, phone)')
       .eq('shipment_id', String(shipment_id))
-      .eq('driver_id', driver_id)
       .eq('owner_user_id', owner_user_id)
+      .is('returned_at', null)  // Apenas assignments ativos
       .maybeSingle();
 
-    if (existingAssignment) {
-      // Atualizar scanned_at
+    if (anyAssignment) {
+      // Se já existe assignment ativo
+      if (anyAssignment.driver_id !== driver_id) {
+        // ❌ ERRO: Outro motorista já tem este pacote
+        const otherDriver = anyAssignment.driver as any;
+        console.error(`[scan-bind-auto] ❌ DUPLICATA BLOQUEADA: Pacote ${shipment_id} já atribuído ao motorista ${otherDriver?.name}`);
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            error: `Este pacote já está com outro motorista: ${otherDriver?.name || 'Desconhecido'}${otherDriver?.phone ? ` (${otherDriver.phone})` : ''}`,
+            code: 'DUPLICATE_ASSIGNMENT',
+            current_driver: {
+              id: anyAssignment.driver_id,
+              name: otherDriver?.name,
+              phone: otherDriver?.phone,
+              assigned_at: anyAssignment.assigned_at,
+              scanned_at: anyAssignment.scanned_at,
+            }
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 409  // Conflict
+          }
+        );
+      }
+
+      // ✅ Mesmo motorista - apenas atualizar scanned_at
       const { error: updateError } = await supabase
         .from('driver_assignments')
         .update({ scanned_at: now })
-        .eq('id', existingAssignment.id);
+        .eq('id', anyAssignment.id);
 
       if (updateError) throw updateError;
-      console.log(`[scan-bind-auto] ✓ Assignment atualizado: ${existingAssignment.id}`);
+      console.log(`[scan-bind-auto] ✓ Assignment atualizado (mesmo motorista): ${anyAssignment.id}`);
     } else {
-      // Criar novo assignment
+      // ✅ Nenhum assignment ativo - criar novo
       const { error: insertError } = await supabase
         .from('driver_assignments')
         .insert({
