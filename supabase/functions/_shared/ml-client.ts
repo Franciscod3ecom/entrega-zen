@@ -102,7 +102,8 @@ export async function mlGet(path: string, params: Record<string, string> = {}, m
   if (!mlUserId) {
     throw new Error('ml_user_id é obrigatório para chamadas ML');
   }
-  const token = await getValidToken(mlUserId);
+  
+  let token = await getValidToken(mlUserId);
   const url = new URL(`${ML_BASE_URL}${path}`);
   
   Object.entries(params).forEach(([key, value]) => {
@@ -129,6 +130,25 @@ export async function mlGet(path: string, params: Record<string, string> = {}, m
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         attempts++;
         continue;
+      }
+
+      // 401 - Token inválido, tentar renovar
+      if (response.status === 401) {
+        console.log(`Token inválido (401), forçando renovação...`);
+        // Forçar renovação do token
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: account } = await supabase
+          .from('ml_accounts')
+          .select('*')
+          .eq('ml_user_id', Number(mlUserId))
+          .maybeSingle();
+        
+        if (account) {
+          token = await refreshToken(account.refresh_token, account.site_id, account.ml_user_id, account.owner_user_id);
+          attempts++;
+          continue;
+        }
+        throw new Error(`ML API error: 401 - Token inválido`);
       }
 
       if (!response.ok) {
