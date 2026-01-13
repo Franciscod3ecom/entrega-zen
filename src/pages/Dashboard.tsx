@@ -4,7 +4,7 @@ import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle } from "lucide-react";
+import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,7 +46,6 @@ export default function Dashboard() {
       const { data, error } = await supabase.rpc('get_pendencias_with_cache');
       if (error) throw error;
       
-      // Agrupar por motorista
       const porMotorista = data.reduce((acc: any, item: any) => {
         if (!acc[item.driver_id]) {
           acc[item.driver_id] = {
@@ -77,7 +76,6 @@ export default function Dashboard() {
   }, [navigate]);
 
   const loadStats = async () => {
-    // Usar shipments_cache ao invés de shipments
     const { data: shipments } = await supabase
       .from("shipments_cache")
       .select("status, substatus");
@@ -88,7 +86,6 @@ export default function Dashboard() {
       const notDelivered = shipments.filter((s) => s.status === "not_delivered").length;
       const toReturn = shipments.filter((s) => s.substatus === "returning_to_sender").length;
 
-      // Buscar alertas
       const { data: alerts } = await supabase
         .from("shipment_alerts")
         .select("status");
@@ -114,13 +111,10 @@ export default function Dashboard() {
     setIsRefreshing(true);
     try {
       const { data, error } = await supabase.functions.invoke("auto-refresh-shipments");
-      
       if (error) throw error;
-
-      toast.success(`✅ ${data.updated || 0} envios atualizados, ${data.errors || 0} erros`);
+      toast.success(`✅ ${data.updated || 0} envios atualizados`);
       await loadStats();
     } catch (error: any) {
-      console.error("Erro ao atualizar:", error);
       toast.error(error.message || "Erro ao atualizar status");
     } finally {
       setIsRefreshing(false);
@@ -131,13 +125,10 @@ export default function Dashboard() {
     setIsCheckingProblems(true);
     try {
       const { data, error } = await supabase.functions.invoke("check-stuck-shipments");
-      
       if (error) throw error;
-
       toast.success(`🔍 ${data.alertsCreated || 0} novos alertas criados`);
       await loadStats();
     } catch (error: any) {
-      console.error("Erro ao verificar problemas:", error);
       toast.error(error.message || "Erro ao verificar problemas");
     } finally {
       setIsCheckingProblems(false);
@@ -147,7 +138,6 @@ export default function Dashboard() {
   const handleSyncOrders = async () => {
     setIsRefreshing(true);
     try {
-      // Buscar primeira conta ML do usuário
       const { data: mlAccount } = await supabase
         .from('ml_accounts')
         .select('ml_user_id')
@@ -159,18 +149,16 @@ export default function Dashboard() {
         return;
       }
 
-      toast.info('Importando histórico de pedidos... Isso pode levar alguns minutos.');
+      toast.info('Importando histórico de pedidos...');
 
       const { data, error } = await supabase.functions.invoke("sync-orders-initial", {
         body: { ml_user_id: mlAccount.ml_user_id }
       });
       
       if (error) throw error;
-
-      toast.success(`✅ ${data.imported || 0} pedidos importados, ${data.errors || 0} erros`);
+      toast.success(`✅ ${data.imported || 0} pedidos importados`);
       await loadStats();
     } catch (error: any) {
-      console.error("Erro ao importar histórico:", error);
       toast.error(error.message || "Erro ao importar histórico");
     } finally {
       setIsRefreshing(false);
@@ -183,15 +171,11 @@ export default function Dashboard() {
     setCleanupResult(null);
     try {
       toast.info('🔍 Analisando inconsistências...');
-
       const { data, error } = await supabase.functions.invoke("diagnose-alerts");
-      
       if (error) throw error;
-
       setDiagnosticReport(data.report);
-      toast.success('✅ Diagnóstico concluído! Clique no botão para ver o relatório.');
+      toast.success('✅ Diagnóstico concluído!');
     } catch (error: any) {
-      console.error("Erro no diagnóstico:", error);
       toast.error(error.message || "Erro ao executar diagnóstico");
     } finally {
       setIsDiagnosing(false);
@@ -202,24 +186,16 @@ export default function Dashboard() {
     setIsCleaning(true);
     setCleanupResult(null);
     try {
-      toast.info('🧹 Executando limpeza de inconsistências...');
-
+      toast.info('🧹 Executando limpeza...');
       const { data, error } = await supabase.functions.invoke("cleanup-alerts");
-      
       if (error) throw error;
-
       setCleanupResult(data.result);
       toast.success(`✅ ${data.message}`);
-      
-      // Recarregar stats após limpeza
       await loadStats();
-      
-      // Se o modal de diagnóstico estiver aberto, executar diagnóstico novamente
       if (diagnosticReport) {
         setTimeout(() => handleDiagnoseAlerts(), 1000);
       }
     } catch (error: any) {
-      console.error("Erro na limpeza:", error);
       toast.error(error.message || "Erro ao executar limpeza");
     } finally {
       setIsCleaning(false);
@@ -228,7 +204,7 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      title: "Total de Envios",
+      title: "Total",
       value: stats.totalShipments,
       icon: Package,
       color: "text-primary",
@@ -255,247 +231,217 @@ export default function Dashboard() {
       color: "text-danger",
       bgColor: "bg-danger/10",
     },
-    {
-      title: "A Devolver",
-      value: stats.toReturn,
-      icon: AlertCircle,
-      color: "text-muted-foreground",
-      bgColor: "bg-muted",
-    },
   ];
 
   return (
     <>
       <Layout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Visão geral das entregas Mercado Envios Flex
-          </p>
-        </div>
+        <div className="space-y-4 md:space-y-6">
+          {/* Header */}
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              Visão geral das entregas Mercado Envios Flex
+            </p>
+          </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {statCards.map((stat, index) => (
-            <Card key={index} className="transition-smooth hover:shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
+          {/* Stats Grid - Mobile optimized */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            {statCards.map((stat, index) => (
+              <Card key={index} className="border-0 shadow-md rounded-2xl overflow-hidden animate-scale-in" style={{ animationDelay: `${index * 50}ms` }}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`${stat.bgColor} rounded-xl p-2`}>
+                      <stat.icon className={`h-4 w-4 md:h-5 md:w-5 ${stat.color}`} />
+                    </div>
+                  </div>
+                  <div className="text-2xl md:text-3xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {stat.title}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Alerts & Pending - Mobile cards */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Alerts Card */}
+            <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="h-8 w-8 rounded-xl bg-danger/10 flex items-center justify-center">
+                    <AlertCircle className="h-4 w-4 text-danger" />
+                  </div>
+                  Alertas
                 </CardTitle>
-                <div className={`${stat.bgColor} rounded-lg p-2`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.value > 0 
-                    ? `${((stat.value / stats.totalShipments) * 100).toFixed(1)}% do total`
-                    : "Nenhum registro"}
-                </p>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-3 rounded-xl bg-danger/5">
+                    <div className="text-2xl font-bold text-danger">{stats.alertsPending}</div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Pendentes</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-secondary/5">
+                    <div className="text-2xl font-bold text-secondary">{stats.alertsInvestigating}</div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Investigando</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-success/5">
+                    <div className="text-2xl font-bold text-success">{stats.alertsResolved}</div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Resolvidos</p>
+                  </div>
+                </div>
+                <Button asChild className="w-full h-11 rounded-xl">
+                  <Link to="/operacoes">
+                    Ver Operações
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Card de Alertas */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-danger" />
-                Alertas Ativos
+            {/* Pending Card */}
+            <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Clock className="h-4 w-4 text-primary" />
+                  </div>
+                  Pendências
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pendenciasData ? (
+                  <div className="space-y-4">
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-4xl font-bold">{pendenciasData.total}</div>
+                      <p className="text-sm text-muted-foreground">pacotes com motoristas</p>
+                    </div>
+                    
+                    {pendenciasData.porMotorista.length > 0 && (
+                      <div className="space-y-2 pt-3 border-t">
+                        {(pendenciasData.porMotorista as any[]).slice(0, 3).map((item: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between py-1">
+                            <span className="text-sm truncate">{item.driver_name}</span>
+                            <Badge variant="secondary" className="rounded-lg">{item.count}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button asChild variant="outline" className="w-full h-11 rounded-xl">
+                      <Link to="/rastreamento?tab=pendentes">
+                        Ver Detalhes
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Maintenance Actions */}
+          <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <RefreshCw className="h-4 w-4 text-primary" />
+                </div>
+                Manutenção
               </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Ações para manter os dados atualizados
+              </p>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <div className="text-3xl font-bold text-danger">{stats.alertsPending}</div>
-                    <p className="text-xs text-muted-foreground">Pendentes</p>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold text-secondary">{stats.alertsInvestigating}</div>
-                    <p className="text-xs text-muted-foreground">Em Investigação</p>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold text-success">{stats.alertsResolved}</div>
-                    <p className="text-xs text-muted-foreground">Resolvidos</p>
-                  </div>
-                </div>
-                
-                <Button asChild className="w-full">
-                  <Link to="/operacoes">Ver Operações Unificadas →</Link>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <Button
+                  onClick={handleAutoRefresh}
+                  disabled={isRefreshing}
+                  variant="outline"
+                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                >
+                  {isRefreshing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-5 w-5" />
+                  )}
+                  <span className="text-xs font-medium">Atualizar Status</span>
                 </Button>
+
+                <Button
+                  onClick={handleCheckProblems}
+                  disabled={isCheckingProblems}
+                  variant="outline"
+                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                >
+                  {isCheckingProblems ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Search className="h-5 w-5" />
+                  )}
+                  <span className="text-xs font-medium">Verificar Problemas</span>
+                </Button>
+
+                <Button
+                  onClick={handleSyncOrders}
+                  disabled={isRefreshing}
+                  variant="outline"
+                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                >
+                  {isRefreshing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-5 w-5" />
+                  )}
+                  <span className="text-xs font-medium">Importar Pedidos</span>
+                </Button>
+
+                <Button
+                  onClick={handleDiagnoseAlerts}
+                  disabled={isDiagnosing}
+                  variant="outline"
+                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                >
+                  {isDiagnosing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-warning" />
+                  )}
+                  <span className="text-xs font-medium">Diagnosticar</span>
+                </Button>
+
+                <Button
+                  onClick={handleCleanupAlerts}
+                  disabled={isCleaning || isDiagnosing}
+                  variant="outline"
+                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback col-span-2 md:col-span-1"
+                >
+                  {isCleaning ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-success" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5 text-success" />
+                  )}
+                  <span className="text-xs font-medium">Corrigir Inconsistências</span>
+                </Button>
+              </div>
+              
+              <div className="mt-4 p-3 bg-muted/50 rounded-xl">
+                <p className="text-xs text-muted-foreground">
+                  💡 Execute "Atualizar Status" a cada 2-4h e "Verificar Problemas" 1x/dia
+                </p>
               </div>
             </CardContent>
           </Card>
-
-          {/* Card de Pendências */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Pendências Ativas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {pendenciasData ? (
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-4xl font-bold">{pendenciasData.total}</div>
-                    <p className="text-sm text-muted-foreground">
-                      pacotes com motoristas
-                    </p>
-                  </div>
-                  
-                  {pendenciasData.porMotorista.length > 0 && (
-                    <div className="space-y-2 pt-4 border-t">
-                      <p className="text-sm font-medium">Por motorista:</p>
-                      {(pendenciasData.porMotorista as any[]).map((item: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <span className="text-sm">{item.driver_name}</span>
-                          <Badge variant="secondary">{item.count}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <Button asChild className="w-full mt-4">
-                    <Link to="/rastreamento?tab=pendentes">Ver Detalhes →</Link>
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p>Carregando...</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
+      </Layout>
 
-        {/* Card de Manutenção do Sistema */}
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 text-primary" />
-              Manutenção do Sistema
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Execute essas ações periodicamente para manter os dados atualizados
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Button
-                onClick={handleAutoRefresh}
-                disabled={isRefreshing}
-                variant="outline"
-                className="h-auto py-6 flex-col items-start gap-2"
-              >
-                {isRefreshing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-5 w-5" />
-                )}
-                <div className="text-left">
-                  <div className="font-semibold">Atualizar Status</div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    Consulta ML API e atualiza até 100 envios ativos
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                onClick={handleCheckProblems}
-                disabled={isCheckingProblems}
-                variant="outline"
-                className="h-auto py-6 flex-col items-start gap-2"
-              >
-                {isCheckingProblems ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Search className="h-5 w-5" />
-                )}
-                <div className="text-left">
-                  <div className="font-semibold">Verificar Problemas</div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    Detecta envios parados e cria alertas automáticos
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                onClick={handleSyncOrders}
-                disabled={isRefreshing}
-                variant="outline"
-                className="h-auto py-6 flex-col items-start gap-2"
-              >
-                {isRefreshing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <ExternalLink className="h-5 w-5" />
-                )}
-                <div className="text-left">
-                  <div className="font-semibold">Importar Histórico de Pedidos</div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    Sincroniza pedidos passados do Mercado Livre (até 200 pedidos)
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                onClick={handleDiagnoseAlerts}
-                disabled={isDiagnosing}
-                variant="outline"
-                className="h-auto py-6 flex-col items-start gap-2"
-              >
-                {isDiagnosing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-orange-500" />
-                )}
-                <div className="text-left">
-                  <div className="font-semibold">Diagnosticar Inconsistências</div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    Identifica alertas órfãos, duplicados e envios finalizados
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                onClick={handleCleanupAlerts}
-                disabled={isCleaning || isDiagnosing}
-                variant="outline"
-                className="h-auto py-6 flex-col items-start gap-2 border-green-500/20 hover:bg-green-500/10"
-              >
-                {isCleaning ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-green-500" />
-                ) : (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                )}
-                <div className="text-left">
-                  <div className="font-semibold">Corrigir Inconsistências</div>
-                  <div className="text-xs text-muted-foreground font-normal">
-                    Remove órfãos, consolida duplicados e resolve finalizados
-                  </div>
-                </div>
-              </Button>
-            </div>
-            
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground">
-                💡 <strong>Recomendação:</strong> Execute "Atualizar Status" a cada 2-4 horas e "Verificar Problemas" 1x por dia
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </Layout>
-
-    {/* Modal de Relatório de Diagnóstico */}
-    {diagnosticReport && (
+      {/* Diagnostic Modal */}
       <DiagnosticReportModal
         open={!!diagnosticReport}
         onOpenChange={(open) => !open && setDiagnosticReport(null)}
@@ -504,7 +450,6 @@ export default function Dashboard() {
         onCleanup={handleCleanupAlerts}
         isCleaning={isCleaning}
       />
-    )}
-  </>
+    </>
   );
 }

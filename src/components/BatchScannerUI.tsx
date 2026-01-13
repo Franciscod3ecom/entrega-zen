@@ -32,44 +32,48 @@ export function BatchScannerUI({
     (a, b) => b.scannedAt.getTime() - a.scannedAt.getTime()
   );
 
-  const getStatusIcon = (status: PendingItem["status"]) => {
+  const getStatusConfig = (status: PendingItem["status"]) => {
     switch (status) {
       case "pending":
-        return <Clock className="h-4 w-4 text-warning" />;
+        return { 
+          icon: Clock, 
+          label: "Aguardando",
+          className: "bg-warning/10 text-warning border-warning/20"
+        };
       case "syncing":
-        return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
+        return { 
+          icon: Loader2, 
+          label: "Sincronizando...",
+          className: "bg-primary/10 text-primary border-primary/20",
+          iconClassName: "animate-spin"
+        };
       case "success":
-        return <CheckCircle className="h-4 w-4 text-success" />;
+        return { 
+          icon: CheckCircle, 
+          label: "Vinculado",
+          className: "bg-success/10 text-success border-success/20"
+        };
       case "error":
-        return <AlertCircle className="h-4 w-4 text-destructive" />;
-    }
-  };
-
-  const getStatusLabel = (status: PendingItem["status"]) => {
-    switch (status) {
-      case "pending":
-        return "Aguardando";
-      case "syncing":
-        return "Sincronizando...";
-      case "success":
-        return "Vinculado";
-      case "error":
-        return "Erro";
+        return { 
+          icon: AlertCircle, 
+          label: "Erro",
+          className: "bg-destructive/10 text-destructive border-destructive/20"
+        };
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header com contadores e ações */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="gap-1.5">
-            <Clock className="h-3 w-3" />
+    <div className="flex flex-col h-full">
+      {/* Header with counters and actions */}
+      <div className="flex items-center justify-between pb-4 border-b">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1.5 py-1.5 rounded-lg">
+            <Clock className="h-3.5 w-3.5" />
             {pendingCount} pendentes
           </Badge>
-          <Badge variant="secondary" className="gap-1.5">
-            <CheckCircle className="h-3 w-3" />
-            {syncedCount} sincronizados
+          <Badge variant="secondary" className="gap-1.5 py-1.5 rounded-lg">
+            <CheckCircle className="h-3.5 w-3.5" />
+            {syncedCount} vinculados
           </Badge>
         </div>
         
@@ -79,17 +83,17 @@ export function BatchScannerUI({
               size="sm"
               onClick={onSyncNow}
               disabled={isSyncing}
-              className="gap-1.5"
+              className="rounded-lg h-9"
             >
               {isSyncing ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sincronizando...
+                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  Sincronizando
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4" />
-                  Sincronizar Agora
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
+                  Sincronizar
                 </>
               )}
             </Button>
@@ -100,7 +104,7 @@ export function BatchScannerUI({
               size="sm"
               variant="ghost"
               onClick={onClearAll}
-              className="text-muted-foreground"
+              className="rounded-lg h-9 text-muted-foreground"
             >
               Limpar
             </Button>
@@ -108,83 +112,79 @@ export function BatchScannerUI({
         </div>
       </div>
 
-      {/* Indicador de sync automático */}
+      {/* Auto sync indicator */}
       {pendingCount > 0 && !isSyncing && (
-        <div className="text-xs text-muted-foreground text-center py-1 bg-muted/50 rounded">
+        <div className="text-xs text-muted-foreground text-center py-2 bg-muted/30 rounded-lg mt-3">
           ⏱️ Sincronização automática a cada 30 segundos
         </div>
       )}
 
-      {/* Lista de itens */}
+      {/* Items list */}
       {allItems.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-          <Package className="h-12 w-12 mb-3 opacity-40" />
+        <div className="flex-1 flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+            <Package className="h-8 w-8 opacity-40" />
+          </div>
           <p className="font-medium">Nenhum pacote escaneado</p>
-          <p className="text-sm">Escaneie QR codes para adicionar à fila</p>
+          <p className="text-sm mt-1">Escaneie QR codes para adicionar à fila</p>
         </div>
       ) : (
-        <ScrollArea className="h-[300px] pr-2">
-          <div className="space-y-2">
-            {allItems.map((item, index) => (
-              <div
-                key={item.id}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                  item.status === "pending" && "bg-warning/5 border-warning/30",
-                  item.status === "syncing" && "bg-primary/5 border-primary/30",
-                  item.status === "success" && "bg-success/5 border-success/30",
-                  item.status === "error" && "bg-destructive/5 border-destructive/30",
-                  index === 0 && item.status === "pending" && "animate-pulse"
-                )}
-              >
-                {/* Ícone de status */}
-                <div className="flex-shrink-0">
-                  {getStatusIcon(item.status)}
-                </div>
-
-                {/* Conteúdo */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-medium truncate">
-                      {item.shipmentId}
-                    </span>
-                    {item.accountNickname && (
-                      <Badge variant="outline" className="text-xs">
-                        {item.accountNickname}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-muted-foreground">
-                      {getStatusLabel(item.status)}
-                    </span>
-                    {item.shipmentStatus && (
-                      <span className="text-xs text-muted-foreground">
-                        • {item.shipmentStatus}
-                      </span>
-                    )}
-                    {item.errorMessage && (
-                      <span className="text-xs text-destructive truncate">
-                        • {item.errorMessage}
-                      </span>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      • {formatDistanceToNow(item.scannedAt, { addSuffix: true, locale: ptBR })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Botão remover */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 flex-shrink-0 opacity-50 hover:opacity-100"
-                  onClick={() => onRemoveItem(item.id)}
+        <ScrollArea className="flex-1 mt-4 -mx-2">
+          <div className="space-y-2 px-2">
+            {allItems.map((item, index) => {
+              const config = getStatusConfig(item.status);
+              const StatusIcon = config.icon;
+              
+              return (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "flex items-center gap-3 p-3.5 rounded-xl border transition-all",
+                    config.className,
+                    index === 0 && item.status === "pending" && "animate-pulse"
+                  )}
                 >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  {/* Status icon */}
+                  <div className="flex-shrink-0">
+                    <StatusIcon className={cn("h-5 w-5", config.iconClassName)} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-semibold truncate">
+                        {item.shipmentId}
+                      </span>
+                      {item.accountNickname && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 rounded-md border-current/30">
+                          {item.accountNickname}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 text-xs opacity-80 flex-wrap">
+                      <span>{config.label}</span>
+                      {item.shipmentStatus && (
+                        <span>• {item.shipmentStatus}</span>
+                      )}
+                      {item.errorMessage && (
+                        <span className="text-destructive truncate">• {item.errorMessage}</span>
+                      )}
+                      <span>• {formatDistanceToNow(item.scannedAt, { addSuffix: true, locale: ptBR })}</span>
+                    </div>
+                  </div>
+
+                  {/* Remove button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 flex-shrink-0 opacity-60 hover:opacity-100 rounded-lg"
+                    onClick={() => onRemoveItem(item.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </ScrollArea>
       )}

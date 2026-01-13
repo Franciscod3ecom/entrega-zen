@@ -24,14 +24,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Search, Package, RefreshCw, Loader2, ExternalLink, TrendingUp, AlertTriangle, Truck, CheckCircle, History, Filter, Clock, CheckCircle2, PackageCheck, Wifi } from "lucide-react";
+import { Search, Package, RefreshCw, Loader2, TrendingUp, AlertTriangle, Truck, CheckCircle, History, Clock, CheckCircle2, PackageCheck, Wifi, Filter, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatBRT } from "@/lib/date-utils";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface RastreamentoItem {
   shipment_id: string;
@@ -75,15 +76,11 @@ export default function OperacoesUnificadas() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
-  // Estados de rastreamento
   const [shipments, setShipments] = useState<RastreamentoItem[]>([]);
   const [filteredShipments, setFilteredShipments] = useState<RastreamentoItem[]>([]);
-  
-  // Estados de alertas
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [filteredAlerts, setFilteredAlerts] = useState<AlertItem[]>([]);
   
-  // Estados compartilhados
   const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
   const [driverFilter, setDriverFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -92,23 +89,19 @@ export default function OperacoesUnificadas() {
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string }>>([]);
   const [activeView, setActiveView] = useState<"rastreamento" | "alertas">("rastreamento");
   
-  // Estados de ações
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
   const [historyModal, setHistoryModal] = useState<{ isOpen: boolean; shipmentId: string; mlUserId: number } | null>(null);
 
-  // Estado de realtime
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set());
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Sync search param to search term
   useEffect(() => {
     const search = searchParams.get("search");
     if (search) {
       setSearchTerm(search);
-      // Clear the search param after reading
       setSearchParams({});
     }
   }, [searchParams, setSearchParams]);
@@ -142,12 +135,9 @@ export default function OperacoesUnificadas() {
           filter: `owner_user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Realtime shipment update:", payload);
-          // Mark the item as new for highlighting
           if (payload.new && typeof payload.new === 'object' && 'shipment_id' in payload.new) {
             const shipmentId = (payload.new as any).shipment_id;
             setNewItemIds((prev) => new Set(prev).add(shipmentId));
-            // Remove highlight after 5 seconds
             setTimeout(() => {
               setNewItemIds((prev) => {
                 const next = new Set(prev);
@@ -156,7 +146,6 @@ export default function OperacoesUnificadas() {
               });
             }, 5000);
           }
-          // Reload data
           loadShipments();
         }
       )
@@ -169,7 +158,6 @@ export default function OperacoesUnificadas() {
           filter: `owner_user_id=eq.${userId}`,
         },
         (payload) => {
-          console.log("Realtime alert update:", payload);
           if (payload.new && typeof payload.new === 'object' && 'id' in payload.new) {
             const alertId = (payload.new as any).id;
             setNewItemIds((prev) => new Set(prev).add(alertId));
@@ -208,8 +196,7 @@ export default function OperacoesUnificadas() {
       .order("last_ml_update", { ascending: false });
 
     if (error) {
-      console.error("Erro ao carregar rastreamento:", error);
-      toast.error("Erro ao carregar dados de rastreamento");
+      toast.error("Erro ao carregar dados");
     } else {
       setShipments(data || []);
     }
@@ -218,14 +205,10 @@ export default function OperacoesUnificadas() {
   const loadAlerts = async () => {
     const { data: alertsData, error } = await supabase
       .from("shipment_alerts")
-      .select(`
-        *,
-        drivers(name, phone)
-      `)
+      .select(`*, drivers(name, phone)`)
       .order("detected_at", { ascending: false });
 
     if (error) {
-      console.error("Erro ao carregar alertas:", error);
       toast.error("Erro ao carregar alertas");
       return;
     }
@@ -247,21 +230,15 @@ export default function OperacoesUnificadas() {
   };
 
   const loadDrivers = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("drivers")
       .select("id, name")
       .eq("active", true)
       .order("name");
-
-    if (error) {
-      console.error("Erro ao carregar motoristas:", error);
-    } else {
-      setDrivers(data || []);
-    }
+    setDrivers(data || []);
   };
 
   const applyFilters = () => {
-    // Filtrar rastreamento
     let filteredShips = shipments;
 
     if (searchTerm) {
@@ -285,14 +262,12 @@ export default function OperacoesUnificadas() {
 
     setFilteredShipments(filteredShips);
 
-    // Filtrar alertas
     let filteredAlts = alerts;
 
     if (searchTerm) {
       filteredAlts = filteredAlts.filter(alert =>
         alert.shipment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        alert.shipments_cache?.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        alert.shipments_cache?.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase())
+        alert.shipments_cache?.order_id?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -316,17 +291,14 @@ export default function OperacoesUnificadas() {
   const handleRefresh = async (shipmentId: string, mlUserId: number) => {
     setRefreshingId(shipmentId);
     try {
-      const { data, error } = await supabase.functions.invoke("refresh-shipment", {
+      const { error } = await supabase.functions.invoke("refresh-shipment", {
         body: { shipment_id: shipmentId, ml_user_id: mlUserId },
       });
-
       if (error) throw error;
-
-      toast.success("Status atualizado com sucesso!");
+      toast.success("Status atualizado!");
       await loadAllData();
     } catch (error: any) {
-      console.error("Erro ao atualizar:", error);
-      toast.error(error.message || "Erro ao atualizar status");
+      toast.error(error.message || "Erro ao atualizar");
     } finally {
       setRefreshingId(null);
     }
@@ -337,18 +309,12 @@ export default function OperacoesUnificadas() {
     try {
       const { error } = await supabase
         .from("shipment_alerts")
-        .update({
-          status: "resolved",
-          resolved_at: new Date().toISOString(),
-        })
+        .update({ status: "resolved", resolved_at: new Date().toISOString() })
         .eq("id", alertId);
-
       if (error) throw error;
-
-      toast.success("Alerta resolvido com sucesso!");
+      toast.success("Alerta resolvido!");
       await loadAlerts();
-    } catch (error: any) {
-      console.error("Erro ao resolver alerta:", error);
+    } catch {
       toast.error("Erro ao resolver alerta");
     } finally {
       setResolvingId(null);
@@ -363,13 +329,10 @@ export default function OperacoesUnificadas() {
         .update({ returned_at: new Date().toISOString() })
         .eq("shipment_id", shipmentId)
         .is("returned_at", null);
-
       if (error) throw error;
-
-      toast.success("Pacote marcado como devolvido!");
+      toast.success("Marcado como devolvido!");
       await loadAllData();
-    } catch (error: any) {
-      console.error("Erro ao marcar devolução:", error);
+    } catch {
       toast.error("Erro ao marcar devolução");
     } finally {
       setReturningId(null);
@@ -379,9 +342,9 @@ export default function OperacoesUnificadas() {
   const getAlertTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       not_scanned: "Não Bipado",
-      missing_shipment: "Envio Ausente",
-      duplicate_scan: "Bipagem Duplicada",
-      stale_status: "Status Parado",
+      missing_shipment: "Ausente",
+      duplicate_scan: "Duplicado",
+      stale_status: "Parado",
       no_driver: "Sem Motorista",
     };
     return labels[type] || type;
@@ -392,14 +355,6 @@ export default function OperacoesUnificadas() {
     return rawData.receiver?.first_name || rawData.buyer?.nickname || "Cliente";
   };
 
-  const getUpdateBadgeColor = (lastUpdate: string) => {
-    const hoursAgo = (Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60 * 60);
-    if (hoursAgo < 3) return "success";
-    if (hoursAgo < 24) return "default";
-    return "destructive";
-  };
-
-  // Métricas
   const metrics = {
     totalAtivos: shipments.filter(s => !["delivered", "not_delivered", "cancelled"].includes(s.status)).length,
     pendentes: shipments.filter(s => s.status === "ready_to_ship").length,
@@ -424,180 +379,153 @@ export default function OperacoesUnificadas() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Operações Unificadas</h1>
-            <p className="text-muted-foreground">
-              Visão consolidada de rastreamento e alertas em tempo real
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl md:text-3xl font-bold">Operações</h1>
+            <p className="text-sm text-muted-foreground">
+              Rastreamento e alertas em tempo real
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-              realtimeConnected 
-                ? "bg-success/10 text-success" 
-                : "bg-muted text-muted-foreground"
-            }`}>
-              <Wifi className="h-3 w-3" />
-              {realtimeConnected ? "Realtime Ativo" : "Conectando..."}
-            </div>
-            <Button variant="outline" size="sm" onClick={loadAllData}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "rounded-lg py-1.5",
+                realtimeConnected ? "border-success/50 text-success" : "text-muted-foreground"
+              )}
+            >
+              <Wifi className="h-3 w-3 mr-1.5" />
+              {realtimeConnected ? "Realtime" : "Conectando"}
+            </Badge>
+            <Button variant="outline" size="sm" onClick={loadAllData} className="rounded-lg h-9">
+              <RefreshCw className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Atualizar</span>
             </Button>
           </div>
         </div>
 
-        {/* Métricas Gerais */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ativos</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.totalAtivos}</div>
-              <p className="text-xs text-muted-foreground">envios em trânsito</p>
+        {/* Metrics - Mobile cards */}
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-6 md:gap-3">
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Ativos</span>
+              </div>
+              <div className="text-xl font-bold">{metrics.totalAtivos}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.pendentes}</div>
-              <p className="text-xs text-muted-foreground">aguardando expedição</p>
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Pendentes</span>
+              </div>
+              <div className="text-xl font-bold">{metrics.pendentes}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Com Alertas</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{metrics.comAlertas}</div>
-              <p className="text-xs text-muted-foreground">requerem atenção</p>
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="h-4 w-4 text-danger" />
+                <span className="text-xs text-muted-foreground">Com Alertas</span>
+              </div>
+              <div className="text-xl font-bold text-danger">{metrics.comAlertas}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Entregues Hoje</CardTitle>
-              <PackageCheck className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">{metrics.entreguesHoje}</div>
-              <p className="text-xs text-muted-foreground">finalizados hoje</p>
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <PackageCheck className="h-4 w-4 text-success" />
+                <span className="text-xs text-muted-foreground">Entregues</span>
+              </div>
+              <div className="text-xl font-bold text-success">{metrics.entreguesHoje}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Alertas Pendentes</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-warning">{metrics.alertasPendentes}</div>
-              <p className="text-xs text-muted-foreground">não resolvidos</p>
+          <Card className="border-0 shadow-sm rounded-xl hidden md:block">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <span className="text-xs text-muted-foreground">Alertas Pend.</span>
+              </div>
+              <div className="text-xl font-bold text-warning">{metrics.alertasPendentes}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Alertas Resolvidos</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">{metrics.alertasResolvidos}</div>
-              <p className="text-xs text-muted-foreground">concluídos</p>
+          <Card className="border-0 shadow-sm rounded-xl hidden md:block">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <span className="text-xs text-muted-foreground">Resolvidos</span>
+              </div>
+              <div className="text-xl font-bold text-success">{metrics.alertasResolvidos}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filtros Avançados */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filtros Avançados
-            </CardTitle>
-            <CardDescription>
-              Refine a visualização aplicando múltiplos filtros
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Buscar</label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="ID, rastreio, cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Motorista</label>
-                <Select value={driverFilter} onValueChange={setDriverFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os motoristas</SelectItem>
-                    {drivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.name}>
-                        {driver.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="ready_to_ship">Pronto</SelectItem>
-                    <SelectItem value="shipped">Em Trânsito</SelectItem>
-                    <SelectItem value="delivered">Entregue</SelectItem>
-                    <SelectItem value="not_delivered">Não Entregue</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {activeView === "alertas" && (
+        {/* Filters - Mobile sheet */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar ID, rastreio, cliente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-11 rounded-xl"
+            />
+          </div>
+          
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl md:hidden">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto rounded-t-3xl">
+              <SheetHeader className="pb-4">
+                <SheetTitle>Filtros</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-4 pb-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Tipo de Alerta</label>
-                  <Select value={alertTypeFilter} onValueChange={setAlertTypeFilter}>
-                    <SelectTrigger>
+                  <label className="text-sm font-medium">Motorista</label>
+                  <Select value={driverFilter} onValueChange={setDriverFilter}>
+                    <SelectTrigger className="h-11 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os tipos</SelectItem>
-                      <SelectItem value="not_scanned">Não Bipado</SelectItem>
-                      <SelectItem value="missing_shipment">Envio Ausente</SelectItem>
-                      <SelectItem value="duplicate_scan">Bipagem Duplicada</SelectItem>
-                      <SelectItem value="stale_status">Status Parado</SelectItem>
-                      <SelectItem value="no_driver">Sem Motorista</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {drivers.map((driver) => (
+                        <SelectItem key={driver.id} value={driver.name}>
+                          {driver.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
 
-              <div className="flex items-end">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="pending">Pendente</SelectItem>
+                      <SelectItem value="ready_to_ship">Pronto</SelectItem>
+                      <SelectItem value="shipped">Em Trânsito</SelectItem>
+                      <SelectItem value="delivered">Entregue</SelectItem>
+                      <SelectItem value="not_delivered">Não Entregue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button 
                   variant="outline" 
                   onClick={() => {
@@ -606,304 +534,402 @@ export default function OperacoesUnificadas() {
                     setStatusFilter("all");
                     setAlertTypeFilter("all");
                   }}
-                  className="w-full"
+                  className="w-full h-11 rounded-xl"
                 >
                   Limpar Filtros
                 </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </SheetContent>
+          </Sheet>
 
-        {/* Tabs de Visualização */}
+          {/* Desktop filters */}
+          <div className="hidden md:flex items-center gap-2">
+            <Select value={driverFilter} onValueChange={setDriverFilter}>
+              <SelectTrigger className="w-40 h-11 rounded-xl">
+                <SelectValue placeholder="Motorista" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {drivers.map((driver) => (
+                  <SelectItem key={driver.id} value={driver.name}>
+                    {driver.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36 h-11 rounded-xl">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="ready_to_ship">Pronto</SelectItem>
+                <SelectItem value="shipped">Em Trânsito</SelectItem>
+                <SelectItem value="delivered">Entregue</SelectItem>
+                <SelectItem value="not_delivered">Não Entregue</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Tabs */}
         <Tabs value={activeView} onValueChange={(v) => setActiveView(v as "rastreamento" | "alertas")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="rastreamento" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 h-12 rounded-xl p-1">
+            <TabsTrigger value="rastreamento" className="rounded-lg gap-2 h-10">
               <Package className="h-4 w-4" />
-              Rastreamento ({filteredShipments.length})
+              <span>Rastreamento</span>
+              <Badge variant="secondary" className="ml-1">{filteredShipments.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="alertas" className="flex items-center gap-2">
+            <TabsTrigger value="alertas" className="rounded-lg gap-2 h-10">
               <AlertTriangle className="h-4 w-4" />
-              Alertas ({filteredAlerts.length})
+              <span>Alertas</span>
+              <Badge variant="secondary" className="ml-1">{filteredAlerts.length}</Badge>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="rastreamento" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Envios em Rastreamento</CardTitle>
-                <CardDescription>
-                  Visualização completa de todos os envios com status e motoristas
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
+          {/* Shipments Tab */}
+          <TabsContent value="rastreamento" className="mt-4">
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-3">
+              {filteredShipments.length === 0 ? (
+                <Card className="border-0 shadow-sm rounded-xl">
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>Nenhum envio encontrado</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredShipments.slice(0, 50).map((item) => (
+                  <Card 
+                    key={item.shipment_id} 
+                    className={cn(
+                      "border-0 shadow-sm rounded-xl overflow-hidden touch-feedback",
+                      newItemIds.has(item.shipment_id) && "ring-2 ring-primary/50"
+                    )}
+                    onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: 0 })}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono text-sm font-semibold truncate">{item.shipment_id}</p>
+                          <p className="text-sm text-muted-foreground truncate">{item.cliente_nome}</p>
+                        </div>
+                        <StatusBadge status={item.status} substatus={item.substatus} />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center gap-3">
+                          {item.motorista_nome && (
+                            <span className="flex items-center gap-1">
+                              <Truck className="h-3 w-3" />
+                              {item.motorista_nome}
+                            </span>
+                          )}
+                          {item.alertas_ativos > 0 && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                              {item.alertas_ativos} alerta{item.alertas_ativos > 1 ? 's' : ''}
+                            </Badge>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table */}
+            <Card className="hidden md:block border-0 shadow-sm rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Shipment ID</TableHead>
+                    <TableHead>Order/Pack</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Motorista</TableHead>
+                    <TableHead>Atualização</TableHead>
+                    <TableHead>Alertas</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredShipments.length === 0 ? (
                     <TableRow>
-                      <TableHead>Shipment ID</TableHead>
-                      <TableHead>Order/Pack</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Motorista</TableHead>
-                      <TableHead>Última Atualização</TableHead>
-                      <TableHead>Alertas</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                        Nenhum envio encontrado
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredShipments.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          Nenhum envio encontrado
+                  ) : (
+                    filteredShipments.map((item) => (
+                      <TableRow 
+                        key={item.shipment_id}
+                        className={newItemIds.has(item.shipment_id) ? "animate-pulse bg-primary/5" : ""}
+                      >
+                        <TableCell className="font-mono text-sm">{item.shipment_id}</TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {item.order_id && <div className="text-sm">Order: {item.order_id}</div>}
+                            {item.pack_id && <div className="text-xs text-muted-foreground">Pack: {item.pack_id}</div>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.cliente_nome}</div>
+                            {item.cidade && (
+                              <div className="text-xs text-muted-foreground">{item.cidade} - {item.estado}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={item.status} substatus={item.substatus} />
+                        </TableCell>
+                        <TableCell>
+                          {item.motorista_nome ? (
+                            <div>
+                              <div className="text-sm font-medium">{item.motorista_nome}</div>
+                              <div className="text-xs text-muted-foreground">{item.motorista_phone}</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDistanceToNow(new Date(item.last_ml_update), { addSuffix: true, locale: ptBR })}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>{formatBRT(item.last_ml_update)}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell>
+                          {item.alertas_ativos > 0 ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {item.alertas_ativos}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: 0 })}
+                              className="h-8 w-8 p-0"
+                            >
+                              <History className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRefresh(item.shipment_id, 0)}
+                              disabled={refreshingId === item.shipment_id}
+                              className="h-8 w-8 p-0"
+                            >
+                              {refreshingId === item.shipment_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      filteredShipments.map((item) => (
-                        <TableRow 
-                          key={item.shipment_id}
-                          className={newItemIds.has(item.shipment_id) ? "animate-pulse bg-primary/10" : ""}
-                        >
-                          <TableCell className="font-mono text-sm">
-                            {item.shipment_id}
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              {item.order_id && (
-                                <div className="text-sm">Order: {item.order_id}</div>
-                              )}
-                              {item.pack_id && (
-                                <div className="text-xs text-muted-foreground">Pack: {item.pack_id}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="font-medium">{item.cliente_nome}</div>
-                              {item.cidade && (
-                                <div className="text-xs text-muted-foreground">
-                                  {item.cidade} - {item.estado}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={item.status} substatus={item.substatus} />
-                          </TableCell>
-                          <TableCell>
-                            {item.motorista_nome ? (
-                              <div className="space-y-1">
-                                <div className="text-sm font-medium">{item.motorista_nome}</div>
-                                <div className="text-xs text-muted-foreground">{item.motorista_phone}</div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">Sem motorista</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge variant={getUpdateBadgeColor(item.last_ml_update) as any}>
-                                    {formatDistanceToNow(new Date(item.last_ml_update), {
-                                      addSuffix: true,
-                                      locale: ptBR,
-                                    })}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {formatBRT(item.last_ml_update)}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                          <TableCell>
-                            {item.alertas_ativos > 0 ? (
-                              <Badge variant="destructive" className="gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                {item.alertas_ativos}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  setHistoryModal({
-                                    isOpen: true,
-                                    shipmentId: item.shipment_id,
-                                    mlUserId: 0,
-                                  })
-                                }
-                              >
-                                <History className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleRefresh(item.shipment_id, 0)}
-                                disabled={refreshingId === item.shipment_id}
-                              >
-                                {refreshingId === item.shipment_id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </Card>
           </TabsContent>
 
-          <TabsContent value="alertas" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Alertas Ativos</CardTitle>
-                <CardDescription>
-                  Monitoramento e gestão de alertas do sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
+          {/* Alerts Tab */}
+          <TabsContent value="alertas" className="mt-4">
+            {/* Mobile Card List */}
+            <div className="md:hidden space-y-3">
+              {filteredAlerts.length === 0 ? (
+                <Card className="border-0 shadow-sm rounded-xl">
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>Nenhum alerta encontrado</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredAlerts.map((alert) => (
+                  <Card 
+                    key={alert.id} 
+                    className={cn(
+                      "border-0 shadow-sm rounded-xl overflow-hidden",
+                      newItemIds.has(alert.id) && "ring-2 ring-primary/50"
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono text-sm font-semibold truncate">{alert.shipment_id}</p>
+                          <p className="text-sm text-muted-foreground">{getClientName(alert.shipments_cache?.raw_data)}</p>
+                        </div>
+                        <Badge variant={alert.status === "pending" ? "destructive" : "secondary"}>
+                          {getAlertTypeLabel(alert.alert_type)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-muted-foreground">
+                          {alert.drivers?.name && (
+                            <span className="flex items-center gap-1">
+                              <Truck className="h-3 w-3" />
+                              {alert.drivers.name}
+                            </span>
+                          )}
+                        </div>
+                        {alert.status === "pending" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleResolveAlert(alert.id)}
+                            disabled={resolvingId === alert.id}
+                            className="h-8 rounded-lg"
+                          >
+                            {resolvingId === alert.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Resolver
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table */}
+            <Card className="hidden md:block border-0 shadow-sm rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Shipment ID</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Motorista</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Detectado</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAlerts.length === 0 ? (
                     <TableRow>
-                      <TableHead>Shipment ID</TableHead>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Rastreio</TableHead>
-                      <TableHead>Tipo de Alerta</TableHead>
-                      <TableHead>Motorista</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Detectado</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                        Nenhum alerta encontrado
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAlerts.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground">
-                          Nenhum alerta encontrado
+                  ) : (
+                    filteredAlerts.map((alert) => (
+                      <TableRow 
+                        key={alert.id}
+                        className={newItemIds.has(alert.id) ? "animate-pulse bg-primary/5" : ""}
+                      >
+                        <TableCell className="font-mono text-sm">{alert.shipment_id}</TableCell>
+                        <TableCell>{getClientName(alert.shipments_cache?.raw_data)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{getAlertTypeLabel(alert.alert_type)}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {alert.drivers ? (
+                            <div>
+                              <div className="text-sm font-medium">{alert.drivers.name}</div>
+                              <div className="text-xs text-muted-foreground">{alert.drivers.phone}</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {alert.status === "pending" ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <Clock className="h-3 w-3" />
+                              Pendente
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <CheckCircle className="h-3 w-3" />
+                              Resolvido
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDistanceToNow(new Date(alert.detected_at), { addSuffix: true, locale: ptBR })}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {format(new Date(alert.detected_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {alert.status === "pending" && (
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleMarkReturned(alert.shipment_id)}
+                                disabled={returningId === alert.shipment_id}
+                                className="h-8"
+                              >
+                                {returningId === alert.shipment_id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>Devolvido</>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleResolveAlert(alert.id)}
+                                disabled={resolvingId === alert.id}
+                                className="h-8"
+                              >
+                                {resolvingId === alert.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    Resolver
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      filteredAlerts.map((alert) => (
-                        <TableRow 
-                          key={alert.id}
-                          className={newItemIds.has(alert.id) ? "animate-pulse bg-primary/10" : ""}
-                        >
-                          <TableCell className="font-mono text-sm">
-                            {alert.shipment_id}
-                          </TableCell>
-                          <TableCell>
-                            {alert.shipments_cache?.order_id || "—"}
-                          </TableCell>
-                          <TableCell>
-                            {getClientName(alert.shipments_cache?.raw_data)}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {alert.shipments_cache?.tracking_number || "—"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {getAlertTypeLabel(alert.alert_type)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {alert.drivers ? (
-                              <div className="space-y-1">
-                                <div className="text-sm font-medium">{alert.drivers.name}</div>
-                                <div className="text-xs text-muted-foreground">{alert.drivers.phone}</div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {alert.status === "pending" ? (
-                              <Badge variant="destructive" className="gap-1">
-                                <Clock className="h-3 w-3" />
-                                Pendente
-                              </Badge>
-                            ) : alert.status === "investigating" ? (
-                              <Badge variant="default" className="gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                Investigando
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Resolvido
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="text-sm">
-                                    {formatDistanceToNow(new Date(alert.detected_at), {
-                                      addSuffix: true,
-                                      locale: ptBR,
-                                    })}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {format(new Date(alert.detected_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {alert.status === "pending" && (
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleMarkReturned(alert.shipment_id)}
-                                  disabled={returningId === alert.shipment_id}
-                                >
-                                  {returningId === alert.shipment_id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    "Devolvido"
-                                  )}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={() => handleResolveAlert(alert.id)}
-                                  disabled={resolvingId === alert.id}
-                                >
-                                  {resolvingId === alert.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    "Resolver"
-                                  )}
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
 
-      {historyModal && (
+      {/* History Modal */}
+      {historyModal?.isOpen && (
         <ShipmentHistoryModal
           isOpen={historyModal.isOpen}
           onClose={() => setHistoryModal(null)}
