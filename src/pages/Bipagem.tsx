@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,41 +7,55 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { StatusBadge } from "@/components/StatusBadge";
-import { formatBRT } from "@/lib/date-utils";
-import { Camera, Loader2, Scan, Type, CheckCircle, AlertTriangle, Users, ArrowRight, Package, X } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Camera, Scan, Type, CheckCircle, Users, Package, X, Zap, Clock, RefreshCw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import BarcodeScanner from "@/components/BarcodeScanner";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
-interface ScannedItem {
-  code: string;
-  shipment_id: string;
-  status: string;
-  substatus?: string;
-  timestamp: string;
-  success: boolean;
-  account_nickname?: string;
-}
+import { BatchScannerUI } from "@/components/BatchScannerUI";
+import { useBatchScanner } from "@/hooks/useBatchScanner";
+import { Badge } from "@/components/ui/badge";
 
 export default function Bipagem() {
-  // Contextos removidos
   const [selectedDriver, setSelectedDriver] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const { toast } = useToast();
 
-  // Sistema de cooldown por shipment para evitar duplicatas
-  const processingShipmentRef = useRef<string | null>(null);
-  const recentShipmentsRef = useRef<Map<string, number>>(new Map());
-  const cooldownMs = 5000; // 5 segundos de cooldown por shipment
+  // Hook de batch scanning
+  const {
+    pendingItems,
+    syncedItems,
+    addCode,
+    syncNow,
+    clearAll,
+    removeItem,
+    isSyncing,
+    pendingCount,
+    syncedCount,
+    errorCount,
+  } = useBatchScanner({
+    driverId: selectedDriver,
+    autoSyncIntervalMs: 30000, // Sync automático a cada 30s
+    onSyncComplete: (results) => {
+      const successCount = results.filter(r => r.status === "success").length;
+      const errorCount = results.filter(r => r.status === "error").length;
+      
+      if (successCount > 0) {
+        toast({
+          title: `✅ ${successCount} pacote${successCount > 1 ? 's' : ''} vinculado${successCount > 1 ? 's' : ''}`,
+          description: errorCount > 0 ? `${errorCount} erro${errorCount > 1 ? 's' : ''}` : undefined,
+        });
+      } else if (errorCount > 0) {
+        toast({
+          title: `❌ ${errorCount} erro${errorCount > 1 ? 's' : ''} ao vincular`,
+          variant: "destructive",
+        });
+      }
+    },
+  });
 
+  // Carregar motoristas
   const { data: drivers, isLoading: driversLoading } = useQuery({
     queryKey: ['drivers'],
     queryFn: async () => {
@@ -56,215 +70,18 @@ export default function Bipagem() {
     },
   });
 
-  const { data: recentScans } = useQuery({
-    queryKey: ['recent-scans'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('driver_assignments')
-        .select('id, shipment_id, scanned_at, drivers(name)')
-        .not('scanned_at', 'is', null)
-        .order('scanned_at', { ascending: false })
-        .limit(5);
-      
-      if (error) throw error;
-      return data;
-    },
-    refetchInterval: isScanning ? false : 30000, // 30s quando não está escaneando
-    enabled: !isScanning, // Pausar durante scan ativo
-  });
-
-  const processCode = async (code: string, source: 'scanner' | 'manual' = 'scanner') => {
-    console.time(`[Bipagem] Processamento ${code.substring(0, 20)}`);
-
-    // Bloqueio global: se já está processando, ignorar
-    if (isProcessing) {
-      console.log('[Bipagem] Ignorado: já está processando outro código');
-      return;
-    }
-
-    if (!selectedDriver) {
-      toast({
-        title: "Erro",
-        description: "Selecione um motorista primeiro",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Extrair shipment_id do código
-    let shipmentId = code.trim();
-    
-    // 1️⃣ Tentar parsear como JSON (QR code do Mercado Livre)
-    try {
-      const parsed = JSON.parse(code);
-      if (parsed.id) {
-        shipmentId = String(parsed.id);
-        console.log(`[Bipagem] QR JSON detectado: ${shipmentId}`);
-      }
-    } catch {
-      // Não é JSON, continuar com outras tentativas
-    }
-    
-    // 2️⃣ Se ainda não extraiu, tentar URL (ex: "https://...shipments/123")
-    if (shipmentId === code) {
-      const urlMatch = code.match(/shipments?[\/:](\d+)/i);
-      if (urlMatch) {
-        shipmentId = urlMatch[1];
-        console.log(`[Bipagem] URL detectada: ${shipmentId}`);
-      }
-    }
-    
-    // 3️⃣ Validar que temos um ID numérico válido
-    if (!/^\d+$/.test(shipmentId)) {
-      toast({
-        title: "❌ Código inválido",
-        description: `O código "${code.substring(0, 50)}..." não é um shipment ID válido`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // 4️⃣ Verificar cooldown por shipment (evitar duplicatas)
-    const now = Date.now();
-    const lastProcessed = recentShipmentsRef.current.get(shipmentId);
-    if (lastProcessed && now - lastProcessed < cooldownMs) {
-      const remainingTime = Math.ceil((cooldownMs - (now - lastProcessed)) / 1000);
-      console.log(`[Bipagem] Ignorado: shipment ${shipmentId} em cooldown (${remainingTime}s restantes)`);
-      
-      // Feedback sutil de duplicata (vibração curta)
+  // Handler para scan do QR code
+  const handleScanResult = (code: string) => {
+    const added = addCode(code);
+    if (!added) {
+      // Feedback de duplicata/inválido
       if ('vibrate' in navigator) {
-        navigator.vibrate(50);
+        navigator.vibrate([30, 20, 30]);
       }
-      return;
-    }
-
-    // Lock: marcar que estamos processando este shipment
-    processingShipmentRef.current = shipmentId;
-    setIsProcessing(true);
-
-    try {
-      // Chamar edge function para busca automática multi-conta
-      const { data, error } = await supabase.functions.invoke('scan-bind-auto', {
-        body: { 
-          driver_id: selectedDriver, 
-          shipment_id: shipmentId,
-        },
-      });
-
-      if (error) throw error;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Erro desconhecido');
-      }
-
-      // Adicionar ao histórico com sucesso
-      const scannedItem: ScannedItem = {
-        code: shipmentId,
-        shipment_id: data.shipment_id,
-        status: data.status,
-        substatus: data.substatus,
-        timestamp: new Date().toISOString(),
-        success: true,
-        account_nickname: data.account_nickname,
-      };
-
-      setScannedItems(prev => [scannedItem, ...prev.slice(0, 4)]); // Manter últimos 5
-
-      toast({
-        title: "✅ Vinculado!",
-        description: data.account_nickname 
-          ? `Pacote ${data.shipment_id} - ${data.account_nickname}`
-          : `Pacote ${data.shipment_id} vinculado`,
-        duration: 2000, // Toast rápido
-      });
-
-      // Limpar campo manual
-      if (source === 'manual') {
-        setManualCode("");
-      }
-
-      // Feedback sonoro/vibrátil de sucesso (1 beep)
-      if ('vibrate' in navigator) {
-        navigator.vibrate(100);
-      }
-      
-      // Som de sucesso mais claro com AudioContext
-      try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 800;
-        gainNode.gain.value = 0.1;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
-      } catch {}
-
-    } catch (error: any) {
-      console.error('Erro ao processar código:', error);
-      
-      const failedItem: ScannedItem = {
-        code: shipmentId,
-        shipment_id: '',
-        status: 'error',
-        timestamp: new Date().toISOString(),
-        success: false,
-      };
-
-      setScannedItems(prev => [failedItem, ...prev.slice(0, 4)]);
-
-      // Mensagem de erro mais clara
-      const errorMsg = error.message?.includes('não encontrado') || error.message?.includes('não corresponde')
-        ? `Não encontrei este envio (${shipmentId}) no ML. Verifique a etiqueta.`
-        : error.message || "Não foi possível vincular o código";
-
-      toast({
-        title: "❌ Erro ao vincular",
-        description: errorMsg,
-        variant: "destructive",
-        duration: 3000,
-      });
-
-      // Feedback de erro (2 beeps)
-      if ('vibrate' in navigator) {
-        navigator.vibrate([100, 50, 100]);
-      }
-      
-      // Som de erro
-      try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.frequency.value = 400;
-        gainNode.gain.value = 0.1;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.15);
-        setTimeout(() => {
-          const osc2 = audioContext.createOscillator();
-          const gain2 = audioContext.createGain();
-          osc2.connect(gain2);
-          gain2.connect(audioContext.destination);
-          osc2.frequency.value = 400;
-          gain2.gain.value = 0.1;
-          osc2.start();
-          osc2.stop(audioContext.currentTime + 0.15);
-        }, 150);
-      } catch {}
-    } finally {
-      // Registrar timestamp do processamento (sucesso ou erro) para cooldown
-      recentShipmentsRef.current.set(shipmentId, Date.now());
-      
-      // Limpar lock
-      processingShipmentRef.current = null;
-      setIsProcessing(false);
-      
-      console.timeEnd(`[Bipagem] Processamento ${code.substring(0, 20)}`);
     }
   };
 
+  // Handler para entrada manual
   const handleManualSubmit = () => {
     if (!manualCode.trim()) {
       toast({
@@ -274,53 +91,105 @@ export default function Bipagem() {
       });
       return;
     }
-    processCode(manualCode, 'manual');
+
+    if (!selectedDriver) {
+      toast({
+        title: "Erro", 
+        description: "Selecione um motorista primeiro",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const added = addCode(manualCode);
+    if (added) {
+      setManualCode("");
+    } else {
+      toast({
+        title: "Código inválido ou duplicado",
+        description: "Verifique o código e tente novamente",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleScanResult = (code: string) => {
-    processCode(code, 'scanner');
+  // Sincronizar ao parar o scanner
+  const handleStopScanning = () => {
+    setIsScanning(false);
+    if (pendingCount > 0) {
+      syncNow();
+    }
   };
 
   const selectedDriverData = drivers?.find(d => d.id === selectedDriver);
   
-  // Contador de pacotes bipados com sucesso na sessão
-  const successCount = useMemo(() => 
-    scannedItems.filter(item => item.success).length, 
-    [scannedItems]
-  );
+  // Total de itens na sessão
+  const totalItems = pendingItems.length + syncedItems.length;
 
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Banner Sticky com Contador */}
+        {/* Banner Sticky durante scan */}
         {isScanning && selectedDriverData && (
-          <div className="sticky top-0 z-50 bg-primary text-primary-foreground p-4 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-1">
+          <div className="sticky top-0 z-50 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground p-4 rounded-lg shadow-lg animate-in fade-in slide-in-from-top-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Package className="h-5 w-5" />
+                <div className="relative">
+                  <Package className="h-6 w-6" />
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-warning text-warning-foreground text-xs rounded-full flex items-center justify-center font-bold">
+                      {pendingCount}
+                    </span>
+                  )}
+                </div>
                 <div>
-                  <div className="font-bold">{selectedDriverData.name}</div>
-                  <div className="text-sm opacity-90">
-                    {successCount} {successCount === 1 ? 'pacote bipado' : 'pacotes bipados'}
+                  <div className="font-bold flex items-center gap-2">
+                    {selectedDriverData.name}
+                    <Badge variant="secondary" className="text-xs">
+                      <Zap className="h-3 w-3 mr-1" />
+                      Modo Rápido
+                    </Badge>
+                  </div>
+                  <div className="text-sm opacity-90 flex items-center gap-3">
+                    <span>{syncedCount} vinculados</span>
+                    {pendingCount > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {pendingCount} aguardando
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-              <Button 
-                variant="secondary" 
-                size="sm"
-                onClick={() => setIsScanning(false)}
-              >
-                <X className="h-4 w-4 mr-1" />
-                Parar
-              </Button>
+              <div className="flex items-center gap-2">
+                {pendingCount > 0 && (
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={syncNow}
+                    disabled={isSyncing}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
+                    Sync
+                  </Button>
+                )}
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  onClick={handleStopScanning}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Parar
+                </Button>
+              </div>
             </div>
           </div>
         )}
 
         <div>
-          <h1 className="text-3xl font-bold">Bipagem de Pacotes</h1>
+          <h1 className="text-3xl font-bold">Bipagem Rápida</h1>
           <p className="text-muted-foreground">
-            Escaneie etiquetas para vincular automaticamente ao motorista
+            Escaneie múltiplos pacotes instantaneamente - sincronização automática em background
           </p>
         </div>
 
@@ -378,22 +247,26 @@ export default function Bipagem() {
               <CardTitle className="flex items-center gap-2">
                 <Camera className="h-5 w-5" />
                 Passo 2: Escaneie as Etiquetas
+                <Badge variant="outline" className="ml-2">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Modo Rápido
+                </Badge>
               </CardTitle>
               <CardDescription>
-                Use a câmera ou digite manualmente
+                Escaneie continuamente - os pacotes são adicionados à fila instantaneamente
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Botão para ativar/desativar scanner */}
               <div className="flex gap-2">
                 <Button 
-                  onClick={() => setIsScanning(!isScanning)}
+                  onClick={() => isScanning ? handleStopScanning() : setIsScanning(true)}
                   variant={isScanning ? "destructive" : "default"}
                   className="flex-1"
                   disabled={!selectedDriver}
                 >
                   <Scan className="h-4 w-4 mr-2" />
-                  {isScanning ? 'Parar Scanner' : 'Iniciar Scanner'}
+                  {isScanning ? 'Parar Scanner' : 'Iniciar Scanner Rápido'}
                 </Button>
               </div>
 
@@ -402,26 +275,18 @@ export default function Bipagem() {
                 <div className="border rounded-lg overflow-hidden bg-black">
                   <BarcodeScanner
                     onScan={handleScanResult}
-                    isActive={isScanning && !isProcessing}
+                    isActive={isScanning}
                   />
                 </div>
               )}
 
-              {/* Status de processamento */}
-              {isProcessing && (
-                <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                  <AlertDescription className="text-blue-800 dark:text-blue-200">
-                    Validando shipment no Mercado Livre...
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Dica sobre QR */}
+              {/* Explicação do modo rápido */}
               <Alert className="border-primary/30 bg-primary/5">
+                <Zap className="h-4 w-4 text-primary" />
                 <AlertDescription className="text-sm">
-                  <strong>💡 Dica:</strong> O QR da etiqueta já contém o <strong>Shipment ID</strong>. 
-                  Basta escanear para vincular automaticamente.
+                  <strong>💡 Modo Rápido:</strong> Os códigos são capturados instantaneamente e sincronizados 
+                  em background a cada 30 segundos ou ao parar o scanner. Isso permite bipar dezenas de 
+                  pacotes sem esperar!
                 </AlertDescription>
               </Alert>
 
@@ -437,13 +302,12 @@ export default function Bipagem() {
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
-                    disabled={isProcessing}
                   />
                   <Button 
                     onClick={handleManualSubmit}
-                    disabled={isProcessing || !manualCode.trim()}
+                    disabled={!manualCode.trim()}
                   >
-                    Vincular
+                    Adicionar
                   </Button>
                 </div>
               </div>
@@ -451,114 +315,44 @@ export default function Bipagem() {
           </Card>
         )}
 
-        {/* Últimas Bipagens - Ocultar durante scan ativo */}
-        {!isScanning && recentScans && recentScans.length > 0 && (
+        {/* Fila de Bipagem */}
+        {selectedDriver && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Últimas Bipagens ({recentScans.length})
+                Fila de Pacotes
+                {totalItems > 0 && (
+                  <Badge variant="secondary">{totalItems}</Badge>
+                )}
               </CardTitle>
               <CardDescription>
-                Pacotes escaneados mais recentemente
+                Pacotes escaneados nesta sessão
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Shipment ID</TableHead>
-                      <TableHead>Motorista</TableHead>
-                      <TableHead>Escaneado em</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentScans.map((scan: any) => (
-                      <TableRow key={scan.id}>
-                        <TableCell className="font-mono text-sm">
-                          {scan.shipment_id}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {scan.drivers?.name || 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatBRT(scan.scanned_at)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <Button asChild variant="outline" className="w-full">
-                <Link to="/operacoes" className="flex items-center gap-2">
-                  Ver Todas as Operações
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+            <CardContent>
+              <BatchScannerUI
+                pendingItems={pendingItems}
+                syncedItems={syncedItems}
+                isSyncing={isSyncing}
+                pendingCount={pendingCount}
+                syncedCount={syncedCount}
+                onSyncNow={syncNow}
+                onRemoveItem={removeItem}
+                onClearAll={clearAll}
+              />
             </CardContent>
           </Card>
         )}
 
-        {/* Histórico da Sessão - Collapsible quando scanning */}
-        {scannedItems.length > 0 && (
-          <Collapsible defaultOpen={!isScanning}>
-            <Card>
-              <CardHeader>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
-                    <div className="text-left">
-                      <CardTitle>Histórico da Sessão</CardTitle>
-                      <CardDescription>
-                        Últimos {scannedItems.length} pacotes escaneados
-                      </CardDescription>
-                    </div>
-                  </Button>
-                </CollapsibleTrigger>
-              </CardHeader>
-              <CollapsibleContent>
-                <CardContent>
-                  <div className="space-y-2">
-                    {scannedItems.map((item, idx) => (
-                      <div
-                        key={`${item.code}-${idx}`}
-                        className={`p-3 rounded-lg border flex items-center justify-between transition-opacity ${
-                          item.success 
-                            ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800 animate-in fade-in duration-200'
-                            : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 animate-in fade-in duration-200'
-                        }`}
-                      >
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        {item.success ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
-                        )}
-                        <span className="font-mono text-sm font-semibold">
-                          {item.shipment_id || item.code}
-                        </span>
-                        {item.account_nickname && (
-                          <span className="text-xs text-muted-foreground">
-                            ({item.account_nickname})
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatBRT(item.timestamp)}
-                      </div>
-                    </div>
-                    {item.success && (
-                      <StatusBadge status={item.status} substatus={item.substatus} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-        )}
+        {/* Link para operações */}
+        <div className="flex justify-center">
+          <Button variant="outline" asChild>
+            <Link to="/operacoes">
+              Ver Rastreamento Completo →
+            </Link>
+          </Button>
+        </div>
       </div>
     </Layout>
   );
