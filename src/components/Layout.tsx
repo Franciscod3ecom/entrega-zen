@@ -1,11 +1,11 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, AlertCircle, Settings, Scan, AlertTriangle, TruckIcon, Route } from "lucide-react";
+import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-// MLAccountSelector removido
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 interface LayoutProps {
   children: ReactNode;
@@ -117,7 +117,8 @@ export default function Layout({ children }: LayoutProps) {
               <span className="text-xl font-bold">RASTREIO_FLEX</span>
             </Link>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />
             </Button>
