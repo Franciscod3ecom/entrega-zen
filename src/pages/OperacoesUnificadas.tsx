@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +25,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Search, Package, RefreshCw, Loader2, ExternalLink, TrendingUp, AlertTriangle, Truck, CheckCircle, History, Filter, Clock, CheckCircle2, PackageCheck } from "lucide-react";
+import { Search, Package, RefreshCw, Loader2, ExternalLink, TrendingUp, AlertTriangle, Truck, CheckCircle, History, Filter, Clock, CheckCircle2, PackageCheck, Wifi } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatBRT } from "@/lib/date-utils";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface RastreamentoItem {
   shipment_id: string;
@@ -72,6 +73,7 @@ interface AlertItem {
 
 export default function OperacoesUnificadas() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   // Estados de rastreamento
   const [shipments, setShipments] = useState<RastreamentoItem[]>([]);
@@ -82,7 +84,7 @@ export default function OperacoesUnificadas() {
   const [filteredAlerts, setFilteredAlerts] = useState<AlertItem[]>([]);
   
   // Estados compartilhados
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
   const [driverFilter, setDriverFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [alertTypeFilter, setAlertTypeFilter] = useState("all");
@@ -96,14 +98,98 @@ export default function OperacoesUnificadas() {
   const [returningId, setReturningId] = useState<string | null>(null);
   const [historyModal, setHistoryModal] = useState<{ isOpen: boolean; shipmentId: string; mlUserId: number } | null>(null);
 
+  // Estado de realtime
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set());
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  // Sync search param to search term
+  useEffect(() => {
+    const search = searchParams.get("search");
+    if (search) {
+      setSearchTerm(search);
+      // Clear the search param after reading
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         navigate("/auth");
+      } else {
+        setupRealtimeSubscription(session.user.id);
       }
     });
     loadAllData();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
   }, [navigate]);
+
+  const setupRealtimeSubscription = useCallback((userId: string) => {
+    const channel = supabase
+      .channel("operacoes-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shipments_cache",
+          filter: `owner_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("Realtime shipment update:", payload);
+          // Mark the item as new for highlighting
+          if (payload.new && typeof payload.new === 'object' && 'shipment_id' in payload.new) {
+            const shipmentId = (payload.new as any).shipment_id;
+            setNewItemIds((prev) => new Set(prev).add(shipmentId));
+            // Remove highlight after 5 seconds
+            setTimeout(() => {
+              setNewItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(shipmentId);
+                return next;
+              });
+            }, 5000);
+          }
+          // Reload data
+          loadShipments();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shipment_alerts",
+          filter: `owner_user_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log("Realtime alert update:", payload);
+          if (payload.new && typeof payload.new === 'object' && 'id' in payload.new) {
+            const alertId = (payload.new as any).id;
+            setNewItemIds((prev) => new Set(prev).add(alertId));
+            setTimeout(() => {
+              setNewItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(alertId);
+                return next;
+              });
+            }, 5000);
+          }
+          loadAlerts();
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === "SUBSCRIBED");
+      });
+
+    channelRef.current = channel;
+  }, []);
 
   useEffect(() => {
     applyFilters();
@@ -340,11 +426,27 @@ export default function OperacoesUnificadas() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Operações Unificadas</h1>
-          <p className="text-muted-foreground">
-            Visão consolidada de rastreamento e alertas em tempo real
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Operações Unificadas</h1>
+            <p className="text-muted-foreground">
+              Visão consolidada de rastreamento e alertas em tempo real
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+              realtimeConnected 
+                ? "bg-success/10 text-success" 
+                : "bg-muted text-muted-foreground"
+            }`}>
+              <Wifi className="h-3 w-3" />
+              {realtimeConnected ? "Realtime Ativo" : "Conectando..."}
+            </div>
+            <Button variant="outline" size="sm" onClick={loadAllData}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
         </div>
 
         {/* Métricas Gerais */}
@@ -557,7 +659,10 @@ export default function OperacoesUnificadas() {
                       </TableRow>
                     ) : (
                       filteredShipments.map((item) => (
-                        <TableRow key={item.shipment_id}>
+                        <TableRow 
+                          key={item.shipment_id}
+                          className={newItemIds.has(item.shipment_id) ? "animate-pulse bg-primary/10" : ""}
+                        >
                           <TableCell className="font-mono text-sm">
                             {item.shipment_id}
                           </TableCell>
@@ -691,7 +796,10 @@ export default function OperacoesUnificadas() {
                       </TableRow>
                     ) : (
                       filteredAlerts.map((alert) => (
-                        <TableRow key={alert.id}>
+                        <TableRow 
+                          key={alert.id}
+                          className={newItemIds.has(alert.id) ? "animate-pulse bg-primary/10" : ""}
+                        >
                           <TableCell className="font-mono text-sm">
                             {alert.shipment_id}
                           </TableCell>
