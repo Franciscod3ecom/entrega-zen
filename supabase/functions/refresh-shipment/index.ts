@@ -16,10 +16,19 @@ serve(async (req) => {
   }
 
   try {
-    const { shipment_id, ml_user_id } = await req.json();
+    const body = await req.json().catch(() => ({} as any));
+    const shipment_id = body?.shipment_id;
+    const ml_user_id = body?.ml_user_id;
 
     if (!shipment_id || !ml_user_id) {
-      throw new Error('shipment_id e ml_user_id são obrigatórios');
+      // Não lançar exceção aqui para evitar poluição de logs com requests inválidos
+      return new Response(
+        JSON.stringify({ error: 'shipment_id e ml_user_id são obrigatórios' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Atualizando shipment:', shipment_id, 'ml_user:', ml_user_id);
