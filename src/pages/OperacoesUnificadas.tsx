@@ -94,6 +94,7 @@ export default function OperacoesUnificadas() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
   const [historyModal, setHistoryModal] = useState<{ isOpen: boolean; shipmentId: string; mlUserId: number } | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
 
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [newItemIds, setNewItemIds] = useState<Set<string>>(new Set());
@@ -351,6 +352,27 @@ export default function OperacoesUnificadas() {
     }
   };
 
+  const handleSyncAll = async () => {
+    setSyncingAll(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-all-accounts", {
+        body: { hours_back: 48 },
+      });
+      if (error) throw error;
+      
+      const results = data?.results || [];
+      const totalShipments = results.reduce((acc: number, r: any) => acc + (r.shipments_processed || 0), 0);
+      
+      toast.success(`Sincronização concluída! ${totalShipments} envios atualizados de ${results.length} contas`);
+      await loadAllData();
+    } catch (error: any) {
+      console.error("Erro ao sincronizar:", error);
+      toast.error(error.message || "Erro ao sincronizar contas");
+    } finally {
+      setSyncingAll(false);
+    }
+  };
+
   const getAlertTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       not_scanned: "Não Bipado",
@@ -358,6 +380,7 @@ export default function OperacoesUnificadas() {
       duplicate_scan: "Duplicado",
       stale_status: "Parado",
       no_driver: "Sem Motorista",
+      not_delivered_awaiting_return: "Não Entregue",
     };
     return labels[type] || type;
   };
@@ -415,6 +438,20 @@ export default function OperacoesUnificadas() {
               <Wifi className="h-3 w-3 mr-1.5" />
               {realtimeConnected ? "Realtime" : "Conectando"}
             </Badge>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={handleSyncAll} 
+              disabled={syncingAll}
+              className="rounded-lg h-9 bg-primary hover:bg-primary/90"
+            >
+              {syncingAll ? (
+                <Loader2 className="h-4 w-4 animate-spin md:mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 md:mr-2" />
+              )}
+              <span className="hidden md:inline">{syncingAll ? "Sincronizando..." : "Sincronizar ML"}</span>
+            </Button>
             <Button variant="outline" size="sm" onClick={loadAllData} className="rounded-lg h-9">
               <RefreshCw className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Atualizar</span>
