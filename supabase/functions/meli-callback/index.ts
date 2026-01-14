@@ -7,100 +7,125 @@ const ML_REDIRECT_URI = Deno.env.get('ML_REDIRECT_URI')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+type ParsedState = {
+  owner_user_id: string;
+  nonce: string;
+  exp: number;
+};
+
+function parseState(stateParam: string): ParsedState {
+  // 1) Formato JSON em base64 (legado)
+  try {
+    const decoded = atob(stateParam);
+    const json = JSON.parse(decoded);
+    if (json?.owner_user_id && json?.nonce && typeof json?.exp === 'number') {
+      return json as ParsedState;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2) Formato string "owner|nonce|exp" (fluxo atual do meli-auth)
+  const parts = stateParam.split('|');
+  if (parts.length === 3) {
+    const [owner_user_id, nonce, expStr] = parts;
+    const exp = Number(expStr);
+    if (!owner_user_id || !nonce || !Number.isFinite(exp)) {
+      throw new Error('State inválido');
+    }
+    return { owner_user_id, nonce, exp };
+  }
+
+  throw new Error('State inválido');
+}
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     const url = new URL(req.url);
-    console.log('=== CALLBACK MERCADO LIVRE RECEBIDO ===');
-    console.log('URL completa:', url.toString());
-    console.log('Query params:', Object.fromEntries(url.searchParams.entries()));
-    console.log('=== DEBUG COMPLETO ===');
-    console.log('Method:', req.method);
-    console.log('Referer:', req.headers.get('referer'));
-    console.log('User-Agent:', req.headers.get('user-agent'));
-    
-    // Tentar obter code e state via query params (GET) ou body (POST)
+
+    // Ler parâmetros do callback (GET por padrão)
     let code = url.searchParams.get('code');
     let stateParam = url.searchParams.get('state');
-    let error = url.searchParams.get('error');
-    let errorDescription = url.searchParams.get('error_description');
+    const error = url.searchParams.get('error');
+    const errorDescription = url.searchParams.get('error_description');
 
-    // Se não vier via query params, tentar body (ML às vezes envia via POST)
+    // Alguns clientes podem chamar via POST
     if ((!code || !stateParam) && req.method === 'POST') {
       try {
         const body = await req.json();
-        code = code || body.code;
-        stateParam = stateParam || body.state;
-        error = error || body.error;
-        errorDescription = errorDescription || body.error_description;
-        console.log('Params obtidos do body:', { code: !!code, state: !!stateParam });
-      } catch (e) {
-        console.log('Não foi possível parsear body como JSON');
+        code = code || body?.code;
+        stateParam = stateParam || body?.state;
+      } catch {
+        // ignore
       }
+    }
+
+    // Se alguém/bot chamar a URL sem params, não poluir logs com ERROR
+    if (!code || !stateParam) {
+      console.log('[meli-callback] Chamada sem code/state ignorada', {
+        method: req.method,
+        userAgent: req.headers.get('user-agent'),
+      });
+      return new Response('ok', { status: 200, headers: corsHeaders });
     }
 
     if (error) {
-      console.error('ERRO retornado pelo Mercado Livre:', error, errorDescription);
-      throw new Error(`Erro do Mercado Livre: ${error} - ${errorDescription}`);
+      console.error('[meli-callback] Erro retornado pelo Mercado Livre:', error, errorDescription);
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: `https://rastreioflex.lovable.app/config-ml?status=error&message=${encodeURIComponent(errorDescription || error)}`,
+        },
+      });
     }
 
-    if (!code || !stateParam) {
-      console.error('=== ERRO: PARAMS VAZIOS ===');
-      console.error('Params recebidos:', Object.fromEntries(url.searchParams.entries()));
-      console.error('URL esperava receber: code e state');
-      console.error('');
-      console.error('POSSÍVEIS CAUSAS:');
-      console.error('1. ML_REDIRECT_URI no painel do Mercado Livre não corresponde à URL desta função');
-      console.error('2. ML_REDIRECT_URI deve ser: https://icoxkprlazegyzgxeeok.supabase.co/functions/v1/meli-callback');
-      console.error('3. Verifique em: https://developers.mercadolivre.com.br/apps');
-      throw new Error('Código de autorização ou state não fornecido pelo Mercado Livre. Verifique se a Redirect URI no app do ML está configurada corretamente.');
+    // Validar state (aceita 2 formatos)
+    const state = parseState(stateParam);
+    if (!state.owner_user_id || !state.nonce) {
+      throw new Error('State inválido');
+    }
+    if (Date.now() > state.exp) {
+      throw new Error('State expirado');
     }
 
-    // Validar state
-    let state: any;
-    try {
-      state = JSON.parse(atob(stateParam));
-      if (!state.owner_user_id || !state.nonce) {
-        throw new Error('State inválido');
-      }
-      if (Date.now() > state.exp) {
-        throw new Error('State expirado');
-      }
-    } catch (e) {
-      console.error('Erro ao validar state:', e);
-      throw new Error('State inválido ou expirado');
-    }
-
-    console.log('Callback recebido com code:', code.substring(0, 10) + '...', 'owner_user_id:', state.owner_user_id);
+    console.log('[meli-callback] Callback recebido', {
+      owner_user_id: state.owner_user_id,
+      codePrefix: code.substring(0, 10),
+    });
 
     // Trocar code por access_token
     const tokenResponse = await fetch('https://api.mercadolibre.com/oauth/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: ML_CLIENT_ID,
         client_secret: ML_CLIENT_SECRET,
-        code: code,
+        code,
         redirect_uri: ML_REDIRECT_URI,
       }),
     });
 
     if (!tokenResponse.ok) {
       const errText = await tokenResponse.text();
-      console.error('Erro ao trocar code por token:', errText);
+      console.error('[meli-callback] Erro ao trocar code por token:', errText);
       throw new Error(`Erro ao obter token: ${errText}`);
     }
 
     const tokenData = await tokenResponse.json();
-    console.log('Token obtido com sucesso. User ID:', tokenData.user_id);
 
     // Buscar informações do vendedor
     const userResponse = await fetch(`https://api.mercadolibre.com/users/${tokenData.user_id}`, {
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`,
-      },
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
 
     if (!userResponse.ok) {
@@ -108,50 +133,50 @@ serve(async (req) => {
     }
 
     const userData = await userResponse.json();
-    console.log('Dados do usuário obtidos:', userData.nickname);
 
     // Salvar tokens no banco com owner_user_id
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
     const { error: dbError } = await supabase
       .from('ml_accounts')
-      .upsert({
-        owner_user_id: state.owner_user_id,
-        ml_user_id: tokenData.user_id,
-        nickname: userData.nickname,
-        site_id: userData.site_id,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_at: expiresAt.toISOString(),
-      }, {
-        onConflict: 'owner_user_id,ml_user_id',
-      });
+      .upsert(
+        {
+          owner_user_id: state.owner_user_id,
+          ml_user_id: tokenData.user_id,
+          nickname: userData.nickname,
+          site_id: userData.site_id,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token,
+          expires_at: expiresAt.toISOString(),
+        },
+        {
+          onConflict: 'owner_user_id,ml_user_id',
+        }
+      );
 
     if (dbError) {
-      console.error('Erro ao salvar token:', dbError);
+      console.error('[meli-callback] Erro ao salvar token:', dbError);
       throw dbError;
     }
 
-    console.log('✅ Conta ML vinculada com sucesso!');
+    console.log('[meli-callback] ✅ Conta ML vinculada com sucesso!', userData.nickname);
 
-    // Redirecionar para aplicação com status de sucesso
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `https://rastreioflex.lovable.app/config-ml?status=success&nickname=${encodeURIComponent(userData.nickname)}`,
+        Location: `https://rastreioflex.lovable.app/config-ml?status=success&nickname=${encodeURIComponent(userData.nickname)}`,
       },
     });
   } catch (error: any) {
-    console.error('Erro em meli-callback:', error);
-    
-    // Redirecionar para aplicação com status de erro
+    console.error('[meli-callback] Erro:', error);
+
     return new Response(null, {
       status: 302,
       headers: {
-        'Location': `https://rastreioflex.lovable.app/config-ml?status=error&message=${encodeURIComponent(error.message)}`,
+        Location: `https://rastreioflex.lovable.app/config-ml?status=error&message=${encodeURIComponent(error.message)}`,
       },
     });
   }
 });
+
