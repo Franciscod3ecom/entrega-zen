@@ -87,6 +87,7 @@ export default function OperacoesUnificadas() {
   const [alertTypeFilter, setAlertTypeFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string }>>([]);
+  const [mlAccounts, setMlAccounts] = useState<Record<string, number>>({});
   const [activeView, setActiveView] = useState<"rastreamento" | "alertas">("rastreamento");
   
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
@@ -185,8 +186,19 @@ export default function OperacoesUnificadas() {
 
   const loadAllData = async () => {
     setLoading(true);
-    await Promise.all([loadShipments(), loadAlerts(), loadDrivers()]);
+    await Promise.all([loadShipments(), loadAlerts(), loadDrivers(), loadMlAccounts()]);
     setLoading(false);
+  };
+
+  const loadMlAccounts = async () => {
+    const { data } = await supabase
+      .from("ml_accounts")
+      .select("id, ml_user_id");
+    if (data) {
+      const map: Record<string, number> = {};
+      data.forEach(acc => { map[acc.id] = acc.ml_user_id; });
+      setMlAccounts(map);
+    }
   };
 
   const loadShipments = async () => {
@@ -608,7 +620,7 @@ export default function OperacoesUnificadas() {
                       "border-0 shadow-sm rounded-xl overflow-hidden touch-feedback",
                       newItemIds.has(item.shipment_id) && "ring-2 ring-primary/50"
                     )}
-                    onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: 0 })}
+                    onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0 })}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3 mb-3">
@@ -723,7 +735,7 @@ export default function OperacoesUnificadas() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: 0 })}
+                              onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0 })}
                               className="h-8 w-8 p-0"
                             >
                               <History className="h-4 w-4" />
@@ -731,7 +743,7 @@ export default function OperacoesUnificadas() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleRefresh(item.shipment_id, 0)}
+                              onClick={() => handleRefresh(item.shipment_id, item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0)}
                               disabled={refreshingId === item.shipment_id}
                               className="h-8 w-8 p-0"
                             >
