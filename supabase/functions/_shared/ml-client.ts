@@ -52,7 +52,9 @@ export async function getValidToken(mlUserId: number): Promise<MLToken> {
   };
 }
 
-async function refreshToken(refreshToken: string, siteId: string, mlUserId: number, ownerUserId: string): Promise<MLToken> {
+async function refreshToken(refreshTokenStr: string, siteId: string, mlUserId: number, ownerUserId: string): Promise<MLToken> {
+  console.log(`🔄 Iniciando refresh de token para ML user ${mlUserId}...`);
+  
   const response = await fetch(`${ML_BASE_URL}/oauth/token`, {
     method: 'POST',
     headers: {
@@ -62,13 +64,26 @@ async function refreshToken(refreshToken: string, siteId: string, mlUserId: numb
       grant_type: 'refresh_token',
       client_id: ML_CLIENT_ID,
       client_secret: ML_CLIENT_SECRET,
-      refresh_token: refreshToken,
+      refresh_token: refreshTokenStr,
     }),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Erro ao renovar token ML: ${error}`);
+    const errorText = await response.text();
+    console.error(`❌ Erro ao renovar token ML (${response.status}): ${errorText}`);
+    
+    // Verificar se é erro de refresh token expirado
+    const isInvalidGrant = 
+      errorText.includes('invalid_grant') || 
+      errorText.includes('expired') ||
+      errorText.includes('Invalid refresh token');
+
+    if (isInvalidGrant) {
+      console.error(`⚠️ Refresh token expirado para ML user ${mlUserId} - reconexão manual necessária`);
+      throw new Error(`REFRESH_TOKEN_EXPIRED: Conta ${mlUserId} precisa ser reconectada manualmente em /config-ml`);
+    }
+    
+    throw new Error(`Erro ao renovar token ML: ${errorText}`);
   }
 
   const data = await response.json();
@@ -77,7 +92,7 @@ async function refreshToken(refreshToken: string, siteId: string, mlUserId: numb
   
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
-  await supabase
+  const { error: updateError } = await supabase
     .from('ml_accounts')
     .update({
       access_token: data.access_token,
@@ -87,6 +102,12 @@ async function refreshToken(refreshToken: string, siteId: string, mlUserId: numb
     })
     .eq('owner_user_id', ownerUserId)
     .eq('ml_user_id', mlUserId);
+
+  if (updateError) {
+    console.error(`❌ Erro ao salvar token renovado: ${updateError.message}`);
+  } else {
+    console.log(`✅ Token renovado com sucesso para ML user ${mlUserId}, expira em: ${expiresAt.toISOString()}`);
+  }
 
   return {
     access_token: data.access_token,
