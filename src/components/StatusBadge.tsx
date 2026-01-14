@@ -24,12 +24,16 @@ export function StatusBadge({ status, substatus }: StatusBadgeProps) {
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       'delivered': 'Entregue',
-      'in_transit': 'Em trânsito',
-      'ready_to_ship': 'Pronto para envio',
-      'not_delivered': 'Não entregue',
+      'in_transit': 'Em Trânsito',
+      'ready_to_ship': 'Pronto p/ Envio',
+      'shipped': 'Em Trânsito',
+      'out_for_delivery': 'Saiu p/ Entrega',
+      'not_delivered': 'Não Entregue',
       'cancelled': 'Cancelado',
       'pending': 'Pendente',
       'returned_to_sender': 'Devolvido',
+      'handling': 'Em Preparação',
+      'returned': 'Devolvido',
     };
     return labels[status.toLowerCase()] || status;
   };

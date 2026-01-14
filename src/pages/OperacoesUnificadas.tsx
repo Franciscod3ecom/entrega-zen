@@ -255,11 +255,15 @@ export default function OperacoesUnificadas() {
     let filteredShips = shipments;
 
     if (searchTerm) {
+      const search = searchTerm.toLowerCase();
       filteredShips = filteredShips.filter(item =>
-        item.shipment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.cliente_nome.toLowerCase().includes(searchTerm.toLowerCase())
+        item.shipment_id?.toLowerCase().includes(search) ||
+        item.order_id?.toLowerCase().includes(search) ||
+        item.pack_id?.toLowerCase().includes(search) ||
+        item.tracking_number?.toLowerCase().includes(search) ||
+        item.cliente_nome?.toLowerCase().includes(search) ||
+        item.cidade?.toLowerCase().includes(search) ||
+        item.motorista_nome?.toLowerCase().includes(search)
       );
     }
 
@@ -530,7 +534,7 @@ export default function OperacoesUnificadas() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar ID, rastreio, cliente..."
+              placeholder="Buscar por pedido, cliente, cidade..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 h-11 rounded-xl"
@@ -667,13 +671,25 @@ export default function OperacoesUnificadas() {
                     onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0 })}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-mono text-sm font-semibold truncate">{item.shipment_id}</p>
-                          <p className="text-sm text-muted-foreground truncate">{item.cliente_nome}</p>
+                          {/* Mostrar Order/Pack ID de forma visível */}
+                          {(item.order_id || item.pack_id) && (
+                            <p className="text-xs text-primary font-medium mb-0.5">
+                              {item.pack_id ? `Pacote: ${item.pack_id}` : `Pedido: ${item.order_id}`}
+                            </p>
+                          )}
+                          <p className="font-medium truncate">{item.cliente_nome || 'Cliente não identificado'}</p>
+                          <p className="font-mono text-xs text-muted-foreground">{item.shipment_id}</p>
                         </div>
                         <StatusBadge status={item.status} substatus={item.substatus} />
                       </div>
+                      {/* Localização */}
+                      {item.cidade && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          📍 {item.cidade}{item.estado ? `, ${item.estado}` : ''}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <div className="flex items-center gap-3">
                           {item.motorista_nome && (
@@ -701,8 +717,8 @@ export default function OperacoesUnificadas() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Shipment ID</TableHead>
-                    <TableHead>Order/Pack</TableHead>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Pedido</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Motorista</TableHead>
@@ -727,15 +743,17 @@ export default function OperacoesUnificadas() {
                         <TableCell className="font-mono text-sm">{item.shipment_id}</TableCell>
                         <TableCell>
                           <div className="space-y-0.5">
-                            {item.order_id && <div className="text-sm">Order: {item.order_id}</div>}
-                            {item.pack_id && <div className="text-xs text-muted-foreground">Pack: {item.pack_id}</div>}
+                            {item.pack_id && <div className="text-sm font-medium">Pacote: {item.pack_id}</div>}
+                            {item.order_id && !item.pack_id && <div className="text-sm font-medium">Pedido: {item.order_id}</div>}
+                            {item.order_id && item.pack_id && <div className="text-xs text-muted-foreground">Pedido: {item.order_id}</div>}
+                            {!item.order_id && !item.pack_id && <span className="text-muted-foreground">—</span>}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{item.cliente_nome}</div>
+                            <div className="font-medium">{item.cliente_nome || 'Não identificado'}</div>
                             {item.cidade && (
-                              <div className="text-xs text-muted-foreground">{item.cidade} - {item.estado}</div>
+                              <div className="text-xs text-muted-foreground">{item.cidade}{item.estado ? ` - ${item.estado}` : ''}</div>
                             )}
                           </div>
                         </TableCell>
@@ -876,7 +894,7 @@ export default function OperacoesUnificadas() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Shipment ID</TableHead>
+                    <TableHead>Código</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Motorista</TableHead>
