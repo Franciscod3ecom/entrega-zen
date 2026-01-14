@@ -85,10 +85,40 @@ export default function OperacoesUnificadas() {
   const [driverFilter, setDriverFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [alertTypeFilter, setAlertTypeFilter] = useState("all");
+  const [accountFilter, setAccountFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string }>>([]);
-  const [mlAccounts, setMlAccounts] = useState<Record<string, number>>({});
+  const [mlAccounts, setMlAccounts] = useState<Array<{ id: string; nickname: string; ml_user_id: number }>>([]);
   const [activeView, setActiveView] = useState<"rastreamento" | "alertas">("rastreamento");
+
+  // Cores para badges de contas ML
+  const accountColors = [
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+    "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
+    "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+  ];
+
+  const getAccountColor = (accountId: string | null) => {
+    if (!accountId) return "bg-muted text-muted-foreground";
+    const index = mlAccounts.findIndex(a => a.id === accountId);
+    return index >= 0 ? accountColors[index % accountColors.length] : "bg-muted text-muted-foreground";
+  };
+
+  const getAccountShortName = (accountId: string | null) => {
+    if (!accountId) return "—";
+    const account = mlAccounts.find(a => a.id === accountId);
+    if (!account) return "—";
+    return account.nickname.replace(/DISTRIBUIDORA|DISTRIBUIDOR|\.CLUB/gi, '').trim().slice(0, 4).toUpperCase();
+  };
+
+  const getMlUserId = (accountId: string | null): number => {
+    if (!accountId) return 0;
+    const account = mlAccounts.find(a => a.id === accountId);
+    return account?.ml_user_id || 0;
+  };
   
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -194,11 +224,10 @@ export default function OperacoesUnificadas() {
   const loadMlAccounts = async () => {
     const { data } = await supabase
       .from("ml_accounts")
-      .select("id, ml_user_id");
+      .select("id, nickname, ml_user_id")
+      .order("nickname");
     if (data) {
-      const map: Record<string, number> = {};
-      data.forEach(acc => { map[acc.id] = acc.ml_user_id; });
-      setMlAccounts(map);
+      setMlAccounts(data);
     }
   };
 
@@ -275,6 +304,10 @@ export default function OperacoesUnificadas() {
 
     if (statusFilter !== "all") {
       filteredShips = filteredShips.filter(item => item.status === statusFilter);
+    }
+
+    if (accountFilter !== "all") {
+      filteredShips = filteredShips.filter(item => item.ml_account_id === accountFilter);
     }
 
     setFilteredShipments(filteredShips);
@@ -586,6 +619,23 @@ export default function OperacoesUnificadas() {
                   </Select>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Conta ML</label>
+                  <Select value={accountFilter} onValueChange={setAccountFilter}>
+                    <SelectTrigger className="h-11 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {mlAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.nickname}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Button 
                   variant="outline" 
                   onClick={() => {
@@ -593,6 +643,7 @@ export default function OperacoesUnificadas() {
                     setDriverFilter("all");
                     setStatusFilter("all");
                     setAlertTypeFilter("all");
+                    setAccountFilter("all");
                   }}
                   className="w-full h-11 rounded-xl"
                 >
@@ -629,6 +680,20 @@ export default function OperacoesUnificadas() {
                 <SelectItem value="shipped">Em Trânsito</SelectItem>
                 <SelectItem value="delivered">Entregue</SelectItem>
                 <SelectItem value="not_delivered">Não Entregue</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={accountFilter} onValueChange={setAccountFilter}>
+              <SelectTrigger className="w-44 h-11 rounded-xl">
+                <SelectValue placeholder="Conta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas Contas</SelectItem>
+                {mlAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.nickname}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -668,11 +733,15 @@ export default function OperacoesUnificadas() {
                       "border-0 shadow-sm rounded-xl overflow-hidden touch-feedback",
                       newItemIds.has(item.shipment_id) && "ring-2 ring-primary/50"
                     )}
-                    onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0 })}
+                    onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: getMlUserId(item.ml_account_id) })}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="min-w-0 flex-1">
+                          {/* Tag da conta ML */}
+                          <Badge className={cn("text-[10px] px-1.5 py-0 h-4 mb-1 font-medium", getAccountColor(item.ml_account_id))}>
+                            {getAccountShortName(item.ml_account_id)}
+                          </Badge>
                           {/* Mostrar Order/Pack ID de forma visível */}
                           {(item.order_id || item.pack_id) && (
                             <p className="text-xs text-primary font-medium mb-0.5">
@@ -718,6 +787,7 @@ export default function OperacoesUnificadas() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
+                    <TableHead>Conta</TableHead>
                     <TableHead>Pedido</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Status</TableHead>
@@ -730,7 +800,7 @@ export default function OperacoesUnificadas() {
                 <TableBody>
                   {filteredShipments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-12">
                         Nenhum envio encontrado
                       </TableCell>
                     </TableRow>
@@ -741,6 +811,11 @@ export default function OperacoesUnificadas() {
                         className={newItemIds.has(item.shipment_id) ? "animate-pulse bg-primary/5" : ""}
                       >
                         <TableCell className="font-mono text-sm">{item.shipment_id}</TableCell>
+                        <TableCell>
+                          <Badge className={cn("text-xs font-medium", getAccountColor(item.ml_account_id))}>
+                            {getAccountShortName(item.ml_account_id)}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-0.5">
                             {item.pack_id && <div className="text-sm font-medium">Pacote: {item.pack_id}</div>}
@@ -797,7 +872,7 @@ export default function OperacoesUnificadas() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0 })}
+                              onClick={() => setHistoryModal({ isOpen: true, shipmentId: item.shipment_id, mlUserId: getMlUserId(item.ml_account_id) })}
                               className="h-8 w-8 p-0"
                             >
                               <History className="h-4 w-4" />
@@ -805,7 +880,7 @@ export default function OperacoesUnificadas() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleRefresh(item.shipment_id, item.ml_account_id ? mlAccounts[item.ml_account_id] || 0 : 0)}
+                              onClick={() => handleRefresh(item.shipment_id, getMlUserId(item.ml_account_id))}
                               disabled={refreshingId === item.shipment_id}
                               className="h-8 w-8 p-0"
                             >
