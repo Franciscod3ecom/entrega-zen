@@ -4,11 +4,13 @@ import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle, ArrowRight } from "lucide-react";
+import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle, ArrowRight, Wifi, WifiOff, Activity } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import DiagnosticReportModal from "@/components/DiagnosticReportModal";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface DashboardStats {
   totalShipments: number;
@@ -19,6 +21,15 @@ interface DashboardStats {
   alertsPending: number;
   alertsInvestigating: number;
   alertsResolved: number;
+  lastSync: string | null;
+}
+
+interface MlAccountHealth {
+  id: string;
+  nickname: string | null;
+  ml_user_id: number;
+  expires_at: string;
+  status: 'valid' | 'expiring' | 'expired';
 }
 
 export default function Dashboard() {
@@ -32,9 +43,12 @@ export default function Dashboard() {
     alertsPending: 0,
     alertsInvestigating: 0,
     alertsResolved: 0,
+    lastSync: null,
   });
+  const [mlAccounts, setMlAccounts] = useState<MlAccountHealth[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCheckingProblems, setIsCheckingProblems] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticReport, setDiagnosticReport] = useState<any>(null);
   const [isCleaning, setIsCleaning] = useState(false);
@@ -73,18 +87,52 @@ export default function Dashboard() {
     });
 
     loadStats();
+    loadMlAccounts();
   }, [navigate]);
+
+  const loadMlAccounts = async () => {
+    const { data } = await supabase
+      .from('ml_accounts')
+      .select('id, nickname, ml_user_id, expires_at');
+
+    if (data) {
+      const now = new Date();
+      const accounts: MlAccountHealth[] = data.map(acc => {
+        const expiresAt = new Date(acc.expires_at);
+        const hoursUntilExpiry = (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+        
+        let status: 'valid' | 'expiring' | 'expired' = 'valid';
+        if (hoursUntilExpiry < 0) {
+          status = 'expired';
+        } else if (hoursUntilExpiry < 24) {
+          status = 'expiring';
+        }
+
+        return {
+          id: acc.id,
+          nickname: acc.nickname,
+          ml_user_id: acc.ml_user_id,
+          expires_at: acc.expires_at,
+          status,
+        };
+      });
+      setMlAccounts(accounts);
+    }
+  };
 
   const loadStats = async () => {
     const { data: shipments } = await supabase
       .from("shipments_cache")
-      .select("status, substatus");
+      .select("status, substatus, last_ml_update")
+      .order("last_ml_update", { ascending: false })
+      .limit(1000);
 
     if (shipments) {
       const delivered = shipments.filter((s) => s.status === "delivered").length;
       const inRoute = shipments.filter((s) => ["shipped", "out_for_delivery"].includes(s.status)).length;
       const notDelivered = shipments.filter((s) => s.status === "not_delivered").length;
       const toReturn = shipments.filter((s) => s.substatus === "returning_to_sender").length;
+      const lastSync = shipments[0]?.last_ml_update || null;
 
       const { data: alerts } = await supabase
         .from("shipment_alerts")
@@ -103,6 +151,7 @@ export default function Dashboard() {
         alertsPending,
         alertsInvestigating,
         alertsResolved,
+        lastSync,
       });
     }
   };
@@ -135,33 +184,18 @@ export default function Dashboard() {
     }
   };
 
-  const handleSyncOrders = async () => {
-    setIsRefreshing(true);
+  const handleSyncAllAccounts = async () => {
+    setIsSyncingAll(true);
     try {
-      const { data: mlAccount } = await supabase
-        .from('ml_accounts')
-        .select('ml_user_id')
-        .limit(1)
-        .maybeSingle();
-
-      if (!mlAccount) {
-        toast.error('Nenhuma conta ML conectada');
-        return;
-      }
-
-      toast.info('Importando histórico de pedidos...');
-
-      const { data, error } = await supabase.functions.invoke("sync-orders-initial", {
-        body: { ml_user_id: mlAccount.ml_user_id }
-      });
-      
+      toast.info('🔄 Sincronizando todas as contas ML...');
+      const { data, error } = await supabase.functions.invoke("sync-all-accounts");
       if (error) throw error;
-      toast.success(`✅ ${data.imported || 0} pedidos importados`);
+      toast.success(`✅ ${data.imported || 0} envios importados de ${data.accounts?.length || 0} contas`);
       await loadStats();
     } catch (error: any) {
-      toast.error(error.message || "Erro ao importar histórico");
+      toast.error(error.message || "Erro ao sincronizar contas");
     } finally {
-      setIsRefreshing(false);
+      setIsSyncingAll(false);
     }
   };
 
@@ -233,6 +267,19 @@ export default function Dashboard() {
     },
   ];
 
+  const getAccountStatusBadge = (status: string) => {
+    switch (status) {
+      case 'valid':
+        return <Badge variant="outline" className="border-success/50 text-success">Válido</Badge>;
+      case 'expiring':
+        return <Badge variant="outline" className="border-warning/50 text-warning">Expirando</Badge>;
+      case 'expired':
+        return <Badge variant="destructive">Expirado</Badge>;
+      default:
+        return null;
+    }
+  };
+
   return (
     <>
       <Layout>
@@ -263,6 +310,84 @@ export default function Dashboard() {
               </Card>
             ))}
           </div>
+
+          {/* System Health Card */}
+          <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Activity className="h-4 w-4 text-primary" />
+                </div>
+                Saúde do Sistema
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Última Sincronização */}
+                <div className="p-3 rounded-xl bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Última Sync</span>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {stats.lastSync 
+                      ? formatDistanceToNow(new Date(stats.lastSync), { addSuffix: true, locale: ptBR })
+                      : "Nunca"
+                    }
+                  </div>
+                </div>
+
+                {/* Contas ML */}
+                <div className="p-3 rounded-xl bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Wifi className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Contas ML</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{mlAccounts.length}</span>
+                    {mlAccounts.some(a => a.status === 'expired') && (
+                      <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                        {mlAccounts.filter(a => a.status === 'expired').length} expirada
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Alertas */}
+                <div className="p-3 rounded-xl bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Alertas Pendentes</span>
+                  </div>
+                  <div className="text-sm font-medium text-danger">{stats.alertsPending}</div>
+                </div>
+
+                {/* Pendências */}
+                <div className="p-3 rounded-xl bg-muted/50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Pendências</span>
+                  </div>
+                  <div className="text-sm font-medium">{pendenciasData?.total || 0}</div>
+                </div>
+              </div>
+
+              {/* Contas ML Detalhes */}
+              {mlAccounts.length > 0 && (
+                <div className="border-t pt-3">
+                  <p className="text-xs text-muted-foreground mb-2">Contas Mercado Livre</p>
+                  <div className="space-y-2">
+                    {mlAccounts.map((account) => (
+                      <div key={account.id} className="flex items-center justify-between py-1">
+                        <span className="text-sm">{account.nickname || `ML ${account.ml_user_id}`}</span>
+                        {getAccountStatusBadge(account.status)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Alerts & Pending - Mobile cards */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -361,6 +486,20 @@ export default function Dashboard() {
             <CardContent>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <Button
+                  onClick={handleSyncAllAccounts}
+                  disabled={isSyncingAll}
+                  variant="default"
+                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                >
+                  {isSyncingAll ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <ExternalLink className="h-5 w-5" />
+                  )}
+                  <span className="text-xs font-medium">Sincronizar Contas</span>
+                </Button>
+
+                <Button
                   onClick={handleAutoRefresh}
                   disabled={isRefreshing}
                   variant="outline"
@@ -386,20 +525,6 @@ export default function Dashboard() {
                     <Search className="h-5 w-5" />
                   )}
                   <span className="text-xs font-medium">Verificar Problemas</span>
-                </Button>
-
-                <Button
-                  onClick={handleSyncOrders}
-                  disabled={isRefreshing}
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <ExternalLink className="h-5 w-5" />
-                  )}
-                  <span className="text-xs font-medium">Importar Pedidos</span>
                 </Button>
 
                 <Button
@@ -433,7 +558,7 @@ export default function Dashboard() {
               
               <div className="mt-4 p-3 bg-muted/50 rounded-xl">
                 <p className="text-xs text-muted-foreground">
-                  💡 Execute "Atualizar Status" a cada 2-4h e "Verificar Problemas" 1x/dia
+                  💡 Use "Sincronizar Contas" para importar novos pedidos. "Verificar Problemas" detecta envios parados ou não devolvidos.
                 </p>
               </div>
             </CardContent>
