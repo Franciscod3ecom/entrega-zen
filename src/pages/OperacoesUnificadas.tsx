@@ -368,13 +368,17 @@ export default function OperacoesUnificadas() {
   };
 
   const metrics = {
+    totalEnvios: shipments.length,
     totalAtivos: shipments.filter(s => !["delivered", "not_delivered", "cancelled"].includes(s.status)).length,
+    emRota: shipments.filter(s => ["shipped", "out_for_delivery"].includes(s.status)).length,
     pendentes: shipments.filter(s => s.status === "ready_to_ship").length,
-    comAlertas: shipments.filter(s => s.alertas_ativos > 0).length,
+    entreguesTotal: shipments.filter(s => s.status === "delivered").length,
     entreguesHoje: shipments.filter(s => {
       const today = new Date().toDateString();
       return s.status === "delivered" && new Date(s.last_ml_update).toDateString() === today;
     }).length,
+    naoEntregues: shipments.filter(s => s.status === "not_delivered").length,
+    comAlertas: shipments.filter(s => s.alertas_ativos > 0).length,
     alertasPendentes: alerts.filter(a => a.status === "pending").length,
     alertasResolvidos: alerts.filter(a => a.status === "resolved").length,
   };
@@ -424,29 +428,19 @@ export default function OperacoesUnificadas() {
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Package className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Ativos</span>
+                <span className="text-xs text-muted-foreground">Total</span>
               </div>
-              <div className="text-xl font-bold">{metrics.totalAtivos}</div>
+              <div className="text-xl font-bold">{metrics.totalEnvios}</div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-sm rounded-xl">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Pendentes</span>
+                <Truck className="h-4 w-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Em Rota</span>
               </div>
-              <div className="text-xl font-bold">{metrics.pendentes}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm rounded-xl">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <AlertTriangle className="h-4 w-4 text-danger" />
-                <span className="text-xs text-muted-foreground">Com Alertas</span>
-              </div>
-              <div className="text-xl font-bold text-danger">{metrics.comAlertas}</div>
+              <div className="text-xl font-bold text-primary">{metrics.emRota}</div>
             </CardContent>
           </Card>
 
@@ -456,27 +450,40 @@ export default function OperacoesUnificadas() {
                 <PackageCheck className="h-4 w-4 text-success" />
                 <span className="text-xs text-muted-foreground">Entregues</span>
               </div>
-              <div className="text-xl font-bold text-success">{metrics.entreguesHoje}</div>
+              <div className="text-xl font-bold text-success">{metrics.entreguesTotal}</div>
+              {metrics.entreguesHoje > 0 && (
+                <span className="text-[10px] text-muted-foreground">+{metrics.entreguesHoje} hoje</span>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm rounded-xl">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="h-4 w-4 text-danger" />
+                <span className="text-xs text-muted-foreground">Não Entregues</span>
+              </div>
+              <div className="text-xl font-bold text-danger">{metrics.naoEntregues}</div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-sm rounded-xl hidden md:block">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <span className="text-xs text-muted-foreground">Alertas Pend.</span>
+                <Clock className="h-4 w-4 text-warning" />
+                <span className="text-xs text-muted-foreground">Prontos</span>
               </div>
-              <div className="text-xl font-bold text-warning">{metrics.alertasPendentes}</div>
+              <div className="text-xl font-bold text-warning">{metrics.pendentes}</div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-sm rounded-xl hidden md:block">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="h-4 w-4 text-success" />
-                <span className="text-xs text-muted-foreground">Resolvidos</span>
+                <AlertTriangle className="h-4 w-4 text-danger" />
+                <span className="text-xs text-muted-foreground">Alertas</span>
               </div>
-              <div className="text-xl font-bold text-success">{metrics.alertasResolvidos}</div>
+              <div className="text-xl font-bold text-danger">{metrics.alertasPendentes}</div>
             </CardContent>
           </Card>
         </div>

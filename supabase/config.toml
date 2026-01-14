@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.check-stuck-shipments]
 verify_jwt = false
+
+[functions.sync-orders-periodic]
+verify_jwt = false
+
+[functions.sync-all-accounts]
+verify_jwt = false
