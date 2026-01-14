@@ -33,6 +33,11 @@ export default function ShipmentHistoryModal({
   const [isLoading, setIsLoading] = useState(false);
 
   const loadHistory = async () => {
+    if (!mlUserId || mlUserId === 0) {
+      toast.error("Conta ML não identificada para este envio");
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("get-shipment-history", {
