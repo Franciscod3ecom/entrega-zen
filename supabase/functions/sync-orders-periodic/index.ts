@@ -78,9 +78,10 @@ serve(async (req) => {
               await new Promise(r => setTimeout(r, 100));
 
               // ⚡ FILTRO FLEX: Apenas importar envios do tipo self_service (Flex)
-              const logisticType = shipmentData.logistic_type;
+              // O campo está em logistic.type (não no nível raiz)
+              const logisticType = shipmentData.logistic?.type;
               if (logisticType !== 'self_service') {
-                console.log(`[sync-orders-periodic] ⏭️ Shipment ${shipmentId} ignorado (logistic_type: ${logisticType})`);
+                console.log(`[sync-orders-periodic] ⏭️ Shipment ${shipmentId} ignorado (logistic.type: ${logisticType})`);
                 continue;
               }
 
