@@ -117,9 +117,10 @@ async function processShipment(resource: string, ownerUserId: string, mlUserId: 
     const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, mlUserId);
 
     // ⚡ FILTRO FLEX: Apenas processar envios do tipo self_service (Flex)
-    const logisticType = shipmentData.logistic_type;
+    // O campo está em logistic.type (não no nível raiz)
+    const logisticType = shipmentData.logistic?.type;
     if (logisticType !== 'self_service') {
-      console.log(`[webhook] ⏭️ Shipment ${shipmentId} ignorado (logistic_type: ${logisticType}) - não é Flex`);
+      console.log(`[webhook] ⏭️ Shipment ${shipmentId} ignorado (logistic.type: ${logisticType}) - não é Flex`);
       return;
     }
 
