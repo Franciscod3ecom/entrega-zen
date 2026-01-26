@@ -19,6 +19,22 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        
+        // Gold Primary (D3ECOM)
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          hover: "hsl(var(--gold-hover))",
+          glow: "hsl(var(--gold-glow))",
+        },
+        
+        // Surfaces
+        surface: {
+          page: "hsl(var(--surface-page))",
+          card: "hsl(var(--surface-card))",
+          input: "hsl(var(--surface-input))",
+          elevated: "hsl(var(--surface-elevated))",
+        },
+        
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -70,6 +86,7 @@ export default {
         'gradient-secondary': 'var(--gradient-secondary)',
         'gradient-success': 'var(--gradient-success)',
         'gradient-subtle': 'var(--gradient-subtle)',
+        'gradient-gold-glow': 'var(--gradient-gold-glow)',
       },
       boxShadow: {
         'sm': 'var(--shadow-sm)',
@@ -77,6 +94,7 @@ export default {
         'lg': 'var(--shadow-lg)',
         'primary': 'var(--shadow-primary)',
         'glow': 'var(--shadow-glow)',
+        'gold': 'var(--shadow-gold)',
       },
       borderRadius: {
         '2xl': '1rem',
@@ -85,6 +103,9 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
       },
       keyframes: {
         "accordion-down": {
@@ -107,6 +128,23 @@ export default {
           from: { transform: "translateY(-16px)", opacity: "0" },
           to: { transform: "translateY(0)", opacity: "1" },
         },
+        "shimmer": {
+          "0%": { left: "-100%" },
+          "100%": { left: "100%" },
+        },
+        "liquid-move": {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+          "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+        },
+        "pulse-gold": {
+          "0%, 100%": { boxShadow: "0 0 20px hsl(45 100% 50% / 0.3)" },
+          "50%": { boxShadow: "0 0 40px hsl(45 100% 50% / 0.5)" },
+        },
+        "fade-in-zoom": {
+          from: { opacity: "0", transform: "scale(0.95)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -114,6 +152,10 @@ export default {
         "scale-in": "scale-in 0.2s ease-out",
         "slide-up": "slide-up 0.3s ease-out",
         "slide-down": "slide-down 0.3s ease-out",
+        "shimmer": "shimmer 2s infinite",
+        "liquid-move": "liquid-move 25s ease-in-out infinite",
+        "pulse-gold": "pulse-gold 2s ease-in-out infinite",
+        "fade-in-zoom": "fade-in-zoom 0.3s ease-out",
       },
     },
   },

@@ -89,26 +89,72 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-primary p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4 overflow-hidden">
+      {/* Animated Background Blobs */}
+      <div className="blob-container">
+        <div 
+          className="blob blob-gold" 
+          style={{ 
+            width: '400px', 
+            height: '400px', 
+            top: '-100px', 
+            right: '-100px',
+            animationDelay: '0s'
+          }} 
+        />
+        <div 
+          className="blob blob-purple" 
+          style={{ 
+            width: '350px', 
+            height: '350px', 
+            bottom: '-50px', 
+            left: '-100px',
+            animationDelay: '-10s'
+          }} 
+        />
+        <div 
+          className="blob blob-gold" 
+          style={{ 
+            width: '200px', 
+            height: '200px', 
+            bottom: '20%', 
+            right: '15%',
+            opacity: 0.3,
+            animationDelay: '-15s'
+          }} 
+        />
+      </div>
+
+      {/* Card */}
+      <Card className="relative z-10 w-full max-w-md animate-fade-in-zoom">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-primary">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-gold animate-pulse-gold">
             <Package className="h-8 w-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">RASTREIO_FLEX</CardTitle>
-          <CardDescription>Sistema de rastreamento Mercado Envios Flex</CardDescription>
+          <CardTitle className="text-2xl font-bold text-gold-gradient">RASTREIO_FLEX</CardTitle>
+          <CardDescription className="text-muted-foreground">Sistema de rastreamento Mercado Envios Flex</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Cadastro</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 liquid-glass-subtle rounded-xl p-1 mb-6">
+              <TabsTrigger 
+                value="login" 
+                className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary"
+              >
+                Login
+              </TabsTrigger>
+              <TabsTrigger 
+                value="signup"
+                className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary"
+              >
+                Cadastro
+              </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="login">
+            <TabsContent value="login" className="animate-fade-in">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
+                  <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="login-email"
                     type="email"
@@ -119,7 +165,7 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
+                  <Label htmlFor="login-password" className="text-sm font-medium">Senha</Label>
                   <Input
                     id="login-password"
                     type="password"
@@ -129,16 +175,16 @@ export default function Auth() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" variant="gold" className="w-full" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
               </form>
             </TabsContent>
             
-            <TabsContent value="signup">
+            <TabsContent value="signup" className="animate-fade-in">
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome</Label>
+                  <Label htmlFor="signup-name" className="text-sm font-medium">Nome</Label>
                   <Input
                     id="signup-name"
                     type="text"
@@ -149,7 +195,7 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-email" className="text-sm font-medium">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -160,7 +206,7 @@ export default function Auth() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
+                  <Label htmlFor="signup-password" className="text-sm font-medium">Senha</Label>
                   <Input
                     id="signup-password"
                     type="password"
@@ -170,7 +216,7 @@ export default function Auth() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" variant="gold" className="w-full" disabled={loading}>
                   {loading ? "Criando conta..." : "Criar conta"}
                 </Button>
               </form>
