@@ -2,136 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Apple-like Immersive Design System */
+/* D3ECOM Design System v4.1 - Liquid Edition */
 
 @layer base {
   :root {
-    /* Cores mais suaves e sofisticadas */
-    --background: 220 20% 98%;
-    --foreground: 220 25% 10%;
+    /* Gold Primary (Brand) */
+    --gold: 45 100% 50%;
+    --gold-hover: 45 100% 45%;
+    --gold-glow: 45 100% 50%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    /* Surfaces */
+    --surface-page: 0 0% 0%;
+    --surface-card: 0 0% 7%;
+    --surface-input: 0 0% 100% / 0.03;
+    --surface-elevated: 0 0% 100% / 0.08;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    /* Text */
+    --text-primary: 0 0% 100%;
+    --text-secondary: 0 0% 82%;
+    --text-muted: 0 0% 54%;
 
-    /* Azul profissional premium */
-    --primary: 220 80% 50%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 220 80% 60%;
-    --primary-dark: 220 85% 40%;
+    /* Core Semantic Tokens (Dark-only) */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    /* Laranja vibrante para ações */
-    --secondary: 25 95% 55%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --primary-light: 45 100% 60%;
+    --primary-dark: 45 100% 40%;
+
+    --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 100%;
-    --secondary-light: 25 95% 65%;
+    --secondary-light: 0 0% 20%;
 
-    /* Verde sucesso */
-    --success: 160 70% 40%;
+    --success: 142 70% 45%;
     --success-foreground: 0 0% 100%;
-    --success-light: 160 70% 95%;
+    --success-light: 142 70% 15%;
 
-    /* Vermelho erro */
     --danger: 0 75% 55%;
-    --danger-foreground: 0 0% 100%;
-    --danger-light: 0 75% 95%;
-
-    /* Amarelo warning */
-    --warning: 40 95% 55%;
-    --warning-foreground: 40 95% 15%;
-
-    --muted: 220 20% 94%;
-    --muted-foreground: 220 15% 45%;
-
-    --accent: 220 40% 92%;
-    --accent-foreground: 220 25% 10%;
-
-    --destructive: 0 75% 55%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 20% 90%;
-    --input: 220 20% 90%;
-    --ring: 220 80% 50%;
-
-    --radius: 0.75rem;
-
-    /* Gradientes premium */
-    --gradient-primary: linear-gradient(135deg, hsl(220 80% 50%), hsl(220 85% 40%));
-    --gradient-secondary: linear-gradient(135deg, hsl(25 95% 55%), hsl(25 95% 45%));
-    --gradient-success: linear-gradient(135deg, hsl(160 70% 40%), hsl(160 75% 30%));
-    --gradient-subtle: linear-gradient(180deg, hsl(220 20% 98%), hsl(220 20% 95%));
-
-    /* Sombras Apple-like */
-    --shadow-sm: 0 1px 2px 0 hsl(220 25% 10% / 0.04);
-    --shadow-md: 0 4px 12px -2px hsl(220 25% 10% / 0.08);
-    --shadow-lg: 0 12px 24px -4px hsl(220 25% 10% / 0.12);
-    --shadow-primary: 0 8px 20px hsl(220 80% 50% / 0.25);
-    --shadow-glow: 0 0 20px hsl(220 80% 50% / 0.15);
-
-    /* Blur effects */
-    --blur-subtle: 8px;
-    --blur-strong: 20px;
-
-    /* Transições suaves */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-
-    /* Safe areas para mobile */
-    --safe-area-top: env(safe-area-inset-top);
-    --safe-area-bottom: env(safe-area-inset-bottom);
-    --safe-area-left: env(safe-area-inset-left);
-    --safe-area-right: env(safe-area-inset-right);
-  }
-
-  .dark {
-    --background: 220 30% 6%;
-    --foreground: 220 20% 98%;
-
-    --card: 220 28% 10%;
-    --card-foreground: 220 20% 98%;
-
-    --popover: 220 28% 10%;
-    --popover-foreground: 220 20% 98%;
-
-    --primary: 220 80% 60%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 220 80% 70%;
-    --primary-dark: 220 85% 50%;
-
-    --secondary: 25 95% 60%;
-    --secondary-foreground: 0 0% 100%;
-    --secondary-light: 25 95% 70%;
-
-    --success: 160 70% 45%;
-    --success-foreground: 0 0% 100%;
-    --success-light: 160 70% 15%;
-
-    --danger: 0 75% 60%;
     --danger-foreground: 0 0% 100%;
     --danger-light: 0 75% 15%;
 
     --warning: 40 95% 55%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 0 0% 0%;
 
-    --muted: 220 25% 15%;
-    --muted-foreground: 220 15% 60%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 54%;
 
-    --accent: 220 30% 18%;
-    --accent-foreground: 220 20% 98%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 75% 60%;
+    --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 25% 18%;
-    --input: 220 25% 18%;
-    --ring: 220 80% 60%;
+    --border: 0 0% 100% / 0.08;
+    --input: 0 0% 100% / 0.08;
+    --ring: 45 100% 50%;
 
+    --radius: 1rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(45 100% 50%), hsl(45 100% 40%));
+    --gradient-secondary: linear-gradient(135deg, hsl(0 0% 15%), hsl(0 0% 10%));
+    --gradient-success: linear-gradient(135deg, hsl(142 70% 45%), hsl(142 75% 35%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 7%), hsl(0 0% 4%));
+    --gradient-gold-glow: radial-gradient(ellipse at center, hsl(45 100% 50% / 0.15), transparent 70%);
+
+    /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
     --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.4);
     --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.5);
-    --shadow-primary: 0 8px 20px hsl(220 80% 60% / 0.35);
-    --shadow-glow: 0 0 20px hsl(220 80% 60% / 0.2);
+    --shadow-primary: 0 8px 30px hsl(45 100% 50% / 0.25);
+    --shadow-glow: 0 0 30px hsl(45 100% 50% / 0.2);
+    --shadow-gold: 0 20px 60px hsl(45 100% 50% / 0.3);
+
+    /* Blur effects */
+    --blur-subtle: 8px;
+    --blur-strong: 20px;
+    --blur-liquid: 100px;
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Safe areas for mobile */
+    --safe-area-top: env(safe-area-inset-top);
+    --safe-area-bottom: env(safe-area-inset-bottom);
+    --safe-area-left: env(safe-area-inset-left);
+    --safe-area-right: env(safe-area-inset-right);
   }
 }
 
@@ -140,12 +104,23 @@
     @apply border-border;
   }
 
+  html {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+    letter-spacing: -0.03em;
   }
 
   /* Mobile touch targets - Apple HIG recommends 44px minimum */
@@ -157,17 +132,33 @@
 }
 
 @layer components {
-  /* Glass morphism effect */
+  /* Liquid Glass Effect - Core D3ECOM */
+  .liquid-glass {
+    background: rgba(17, 17, 17, 0.7);
+    backdrop-filter: blur(100px) saturate(280%) contrast(110%);
+    -webkit-backdrop-filter: blur(100px) saturate(280%) contrast(110%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-image: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      transparent 50%
+    );
+  }
+
+  .liquid-glass-subtle {
+    background: rgba(17, 17, 17, 0.5);
+    backdrop-filter: blur(60px) saturate(200%) contrast(105%);
+    -webkit-backdrop-filter: blur(60px) saturate(200%) contrast(105%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* Legacy glass support */
   .glass {
-    @apply bg-white/70 dark:bg-gray-900/70;
-    backdrop-filter: blur(var(--blur-strong));
-    -webkit-backdrop-filter: blur(var(--blur-strong));
+    @apply liquid-glass;
   }
 
   .glass-subtle {
-    @apply bg-white/50 dark:bg-gray-900/50;
-    backdrop-filter: blur(var(--blur-subtle));
-    -webkit-backdrop-filter: blur(var(--blur-subtle));
+    @apply liquid-glass-subtle;
   }
 
   /* Safe area padding for mobile */
@@ -186,7 +177,7 @@
 
   /* Mobile card styles */
   .mobile-card {
-    @apply bg-card rounded-2xl p-4 shadow-md border border-border/50;
+    @apply liquid-glass rounded-2xl p-4;
   }
 
   /* Touch feedback */
@@ -196,19 +187,133 @@
 
   /* Bottom navigation */
   .bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/50;
+    @apply fixed bottom-0 left-0 right-0 z-50 liquid-glass;
     padding-bottom: max(0.5rem, var(--safe-area-bottom));
   }
 
-  /* Floating action button */
+  /* Floating action button with gold glow */
   .fab {
-    @apply fixed z-40 rounded-full shadow-lg shadow-primary/30 touch-feedback;
+    @apply fixed z-40 rounded-full touch-feedback;
     background: var(--gradient-primary);
+    box-shadow: var(--shadow-gold);
+  }
+
+  /* Gold shimmer button effect */
+  .btn-gold-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-gold-shimmer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  /* Input shimmer effect */
+  .input-shimmer {
+    position: relative;
+    background-size: 200% 100%;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 199, 0, 0.03) 50%,
+      transparent 100%
+    );
+  }
+
+  .input-shimmer:focus {
+    animation: input-shimmer 2s ease-in-out infinite;
+  }
+
+  /* Background blobs container */
+  .blob-container {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    will-change: transform;
+  }
+
+  .blob-gold {
+    background: hsl(45 100% 50%);
+    animation: liquid-move 25s ease-in-out infinite;
+  }
+
+  .blob-purple {
+    background: hsl(280 70% 40%);
+    animation: liquid-move 30s ease-in-out infinite reverse;
+  }
+
+  /* Gold accent glow */
+  .gold-glow {
+    box-shadow: var(--shadow-gold);
+  }
+
+  .gold-glow-subtle {
+    box-shadow: 0 0 20px hsl(45 100% 50% / 0.15);
+  }
+
+  /* Text with gold gradient */
+  .text-gold-gradient {
+    background: linear-gradient(135deg, hsl(45 100% 50%), hsl(45 100% 70%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
 @layer utilities {
   /* Animations */
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+
+  @keyframes input-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @keyframes liquid-move {
+    0%, 100% { 
+      transform: translate(0, 0) scale(1); 
+    }
+    33% { 
+      transform: translate(30px, -50px) scale(1.1); 
+    }
+    66% { 
+      transform: translate(-20px, 20px) scale(0.9); 
+    }
+  }
+
+  @keyframes pulse-gold {
+    0%, 100% { 
+      box-shadow: 0 0 20px hsl(45 100% 50% / 0.3);
+    }
+    50% { 
+      box-shadow: 0 0 40px hsl(45 100% 50% / 0.5);
+    }
+  }
+
   @keyframes scale-in {
     from { 
       transform: scale(0.95); 
@@ -247,6 +352,17 @@
     to { opacity: 1; }
   }
 
+  @keyframes fade-in-zoom {
+    from { 
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to { 
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   @keyframes pulse-subtle {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
@@ -273,12 +389,28 @@
     animation: fade-in 0.2s ease-out;
   }
 
+  .animate-fade-in-zoom {
+    animation: fade-in-zoom 0.3s ease-out;
+  }
+
   .animate-pulse-subtle {
     animation: pulse-subtle 2s ease-in-out infinite;
   }
 
   .animate-bounce-subtle {
     animation: bounce-subtle 2s ease-in-out infinite;
+  }
+
+  .animate-pulse-gold {
+    animation: pulse-gold 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+
+  .animate-liquid {
+    animation: liquid-move 25s ease-in-out infinite;
   }
 
   /* Gradient text */
@@ -297,5 +429,25 @@
   
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Custom scrollbar for dark theme */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(0 0% 10%);
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 25%);
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(45 100% 50% / 0.5);
   }
 }

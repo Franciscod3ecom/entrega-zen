@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LayoutDashboard, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home } from "lucide-react";
+import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +57,7 @@ export default function Layout({ children }: LayoutProps) {
       {navItems.map((item) => (
         <Link key={item.to} to={item.to}>
           <Button
-            variant={isActive(item.to) ? "default" : "ghost"}
+            variant={isActive(item.to) ? "gold" : "ghost"}
             className={cn(
               "w-full justify-start gap-3 h-12 text-base",
               isActive(item.to) && "shadow-primary"
@@ -73,8 +73,8 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header - Glass morphism style */}
-      <header className="sticky top-0 z-40 w-full glass border-b border-border/50">
+      {/* Header - Liquid Glass */}
+      <header className="sticky top-0 z-40 w-full liquid-glass border-b border-border">
         <div className="container flex h-14 md:h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             {/* Mobile menu */}
@@ -84,12 +84,12 @@ export default function Layout({ children }: LayoutProps) {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-4 pt-12">
+              <SheetContent side="left" className="w-72 p-4 pt-12 liquid-glass border-border">
                 <NavLinks />
-                <div className="mt-8 pt-4 border-t">
+                <div className="mt-8 pt-4 border-t border-border">
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 h-12 text-danger"
+                    className="w-full justify-start gap-3 h-12 text-danger hover:text-danger hover:bg-danger/10"
                     onClick={handleLogout}
                   >
                     <LogOut className="h-5 w-5" />
@@ -101,10 +101,10 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Logo */}
             <Link to="/dashboard" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-primary">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-gold">
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-lg font-bold hidden sm:block">RASTREIO_FLEX</span>
+              <span className="text-lg font-bold hidden sm:block text-gold-gradient">RASTREIO_FLEX</span>
             </Link>
           </div>
 
@@ -115,7 +115,7 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost" 
               size="icon" 
               onClick={handleLogout}
-              className="hidden md:flex h-10 w-10"
+              className="hidden md:flex h-10 w-10 hover:bg-danger/10 hover:text-danger"
             >
               <LogOut className="h-5 w-5" />
             </Button>
