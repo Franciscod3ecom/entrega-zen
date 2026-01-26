@@ -73,16 +73,23 @@ serve(async (req) => {
             if (orderData.shipping?.id) {
               const shipmentId = orderData.shipping.id.toString();
 
+              // Buscar dados atualizados do shipment
+              const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, account.ml_user_id);
+              await new Promise(r => setTimeout(r, 100));
+
+              // ⚡ FILTRO FLEX: Apenas importar envios do tipo self_service (Flex)
+              const logisticType = shipmentData.logistic_type;
+              if (logisticType !== 'self_service') {
+                console.log(`[sync-orders-periodic] ⏭️ Shipment ${shipmentId} ignorado (logistic_type: ${logisticType})`);
+                continue;
+              }
+
               // Verificar se já existe no cache
               const { data: existingShipment } = await supabase
                 .from('shipments_cache')
                 .select('shipment_id, status, tracking_number')
                 .eq('shipment_id', shipmentId)
                 .maybeSingle();
-
-              // Buscar dados atualizados do shipment
-              const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, account.ml_user_id);
-              await new Promise(r => setTimeout(r, 100));
 
               // Enriquecer com dados do comprador
               shipmentData.buyer_info = {
@@ -115,6 +122,7 @@ serve(async (req) => {
                 errors++;
               } else {
                 imported++;
+                console.log(`[sync-orders-periodic] ✅ Shipment FLEX ${shipmentId} importado`);
               }
             }
           } catch (orderError: any) {

@@ -76,6 +76,13 @@ serve(async (req) => {
                 const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, account.ml_user_id);
                 await new Promise(r => setTimeout(r, 100));
 
+                // ⚡ FILTRO FLEX: Apenas importar envios do tipo self_service (Flex)
+                const logisticType = shipmentData.logistic_type;
+                if (logisticType !== 'self_service') {
+                  console.log(`[sync-all-accounts] ⏭️ Shipment ${shipmentId} ignorado (logistic_type: ${logisticType})`);
+                  continue;
+                }
+
                 shipmentData.buyer_info = {
                   name: `${orderData.buyer?.first_name || ''} ${orderData.buyer?.last_name || ''}`.trim(),
                   nickname: orderData.buyer?.nickname || null,
@@ -104,6 +111,7 @@ serve(async (req) => {
                   errors++;
                 } else {
                   imported++;
+                  console.log(`[sync-all-accounts] ✅ Shipment FLEX ${shipmentId} importado`);
                 }
               }
             } catch (orderError: any) {

@@ -116,6 +116,15 @@ async function processShipment(resource: string, ownerUserId: string, mlUserId: 
     console.log('[webhook] Buscando shipment:', shipmentId, 'para usuário:', ownerUserId, 'ml_user:', mlUserId);
     const shipmentData = await mlGet(`/shipments/${shipmentId}`, {}, mlUserId);
 
+    // ⚡ FILTRO FLEX: Apenas processar envios do tipo self_service (Flex)
+    const logisticType = shipmentData.logistic_type;
+    if (logisticType !== 'self_service') {
+      console.log(`[webhook] ⏭️ Shipment ${shipmentId} ignorado (logistic_type: ${logisticType}) - não é Flex`);
+      return;
+    }
+
+    console.log(`[webhook] ✅ Shipment FLEX ${shipmentId} identificado, processando...`);
+
     // Enriquecer com dados do comprador via /orders
     if (shipmentData.order_id) {
       try {
