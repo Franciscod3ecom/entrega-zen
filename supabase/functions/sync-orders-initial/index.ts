@@ -84,6 +84,13 @@ serve(async (req) => {
               
               await new Promise(r => setTimeout(r, 100));
 
+              // ⚡ FILTRO FLEX: Apenas importar envios do tipo self_service (Flex)
+              const logisticType = shipmentData.logistic_type;
+              if (logisticType !== 'self_service') {
+                console.log(`⏭️ Shipment ${shipmentId} ignorado (logistic_type: ${logisticType})`);
+                continue;
+              }
+
               // Enriquecer com dados do comprador
               shipmentData.buyer_info = {
                 name: `${orderData.buyer?.first_name || ''} ${orderData.buyer?.last_name || ''}`.trim(),
@@ -115,7 +122,7 @@ serve(async (req) => {
                 errors++;
               } else {
                 imported++;
-                console.log(`✅ Shipment ${shipmentId} importado (${imported}/${orders.length})`);
+                console.log(`✅ Shipment FLEX ${shipmentId} importado (${imported})`);
               }
             }
           } catch (orderError: any) {
