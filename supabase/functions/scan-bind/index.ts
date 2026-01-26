@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { mlGet } from "../_shared/ml-client.ts";
+import { mlGet, checkRateLimit } from "../_shared/ml-client.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -39,6 +39,15 @@ serve(async (req) => {
 
     const { driver_id, shipment_id, ml_user_id } = validationResult.data;
 
+    // Rate limiting: 60 scans por minuto por driver
+    const rateLimitKey = `scan-bind:${driver_id}`;
+    if (!checkRateLimit(rateLimitKey, 60, 60000)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Limite de scans excedido. Aguarde um momento.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+      );
+    }
+
     console.log(`[scan-bind] Processando shipment_id: ${shipment_id} para motorista: ${driver_id} (ml_user: ${ml_user_id})`);
 
     // 1. Buscar ml_account_id e owner_user_id
@@ -57,14 +66,16 @@ serve(async (req) => {
     try {
       shipmentData = await mlGet(`/shipments/${shipment_id}`, {}, ml_user_id);
       if (!shipmentData || !shipmentData.id) {
-        throw new Error(`Shipment ${shipment_id} não encontrado no Mercado Livre`);
+        throw new Error('Envio não encontrado');
       }
       console.log(`[scan-bind] ✓ Shipment validado: ${shipmentData.id}`);
     } catch (e: any) {
-      if (e.message?.includes('404') || e.message?.includes('not found')) {
-        throw new Error(`Este código (${shipment_id}) não corresponde a um envio válido. Verifique a etiqueta.`);
+      // Sanitized error messages - no internal details
+      const isNotFound = e.message?.includes('não encontrado') || e.message?.includes('not found') || e.message?.includes('404');
+      if (isNotFound) {
+        throw new Error('Este código não corresponde a um envio válido. Verifique a etiqueta.');
       }
-      throw new Error(`Erro ao validar shipment: ${e.message}`);
+      throw new Error('Erro ao validar envio. Tente novamente.');
     }
 
     const status = shipmentData.status || '';
@@ -92,7 +103,7 @@ serve(async (req) => {
 
     if (cacheError) {
       console.error('[scan-bind] Erro ao atualizar cache:', cacheError);
-      throw cacheError;
+      throw new Error('Erro ao salvar dados. Tente novamente.');
     }
 
     console.log(`[scan-bind] ✓ Cache atualizado`);
@@ -113,7 +124,10 @@ serve(async (req) => {
         .update({ scanned_at: now })
         .eq('id', existingAssignment.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('[scan-bind] Erro ao atualizar assignment:', updateError);
+        throw new Error('Erro ao atualizar vinculação. Tente novamente.');
+      }
       console.log(`[scan-bind] ✓ Assignment atualizado: ${existingAssignment.id}`);
     } else {
       // Criar novo assignment
@@ -128,7 +142,10 @@ serve(async (req) => {
           scanned_at: now,
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('[scan-bind] Erro ao criar assignment:', insertError);
+        throw new Error('Erro ao criar vinculação. Tente novamente.');
+      }
       console.log(`[scan-bind] ✓ Novo assignment criado`);
     }
 
@@ -164,6 +181,7 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
+    // Log full error server-side
     console.error('[scan-bind] Erro:', error);
     return new Response(
       JSON.stringify({ 
