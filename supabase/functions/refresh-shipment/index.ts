@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { mlGet } from '../_shared/ml-client.ts';
+import { mlGet, checkRateLimit } from '../_shared/ml-client.ts';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -10,6 +11,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation schema
+const RefreshShipmentSchema = z.object({
+  shipment_id: z.string()
+    .regex(/^\d+$/, 'shipment_id deve conter apenas números')
+    .min(1, 'shipment_id não pode estar vazio')
+    .max(20, 'shipment_id muito longo'),
+  ml_user_id: z.number()
+    .int('ml_user_id deve ser um número inteiro')
+    .positive('ml_user_id deve ser positivo'),
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,17 +29,32 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({} as any));
-    const shipment_id = body?.shipment_id;
-    const ml_user_id = body?.ml_user_id;
-
-    if (!shipment_id || !ml_user_id) {
-      // Não lançar exceção aqui para evitar poluição de logs com requests inválidos
+    
+    // Validate input with Zod
+    const validation = RefreshShipmentSchema.safeParse(body);
+    
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
       return new Response(
-        JSON.stringify({ error: 'shipment_id e ml_user_id são obrigatórios' }),
+        JSON.stringify({ 
+          error: 'Dados inválidos',
+          message: firstError.message,
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
+      );
+    }
+    
+    const { shipment_id, ml_user_id } = validation.data;
+
+    // Rate limiting: 20 requests per minute per shipment
+    const rateLimitKey = `refresh-shipment:${shipment_id}`;
+    if (!checkRateLimit(rateLimitKey, 20, 60000)) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de requisições excedido. Aguarde um momento.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -124,7 +151,8 @@ serve(async (req) => {
       });
 
     if (updateError) {
-      throw updateError;
+      console.error('[refresh-shipment] Erro ao atualizar cache:', updateError);
+      throw new Error('Erro ao salvar dados. Tente novamente.');
     }
 
     console.log('Shipment atualizado com sucesso');
@@ -143,9 +171,10 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Erro em refresh-shipment:', error);
+    // Log full error server-side
+    console.error('[refresh-shipment] Erro:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Erro ao atualizar envio.' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

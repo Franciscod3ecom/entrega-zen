@@ -16,6 +16,51 @@ interface MLToken {
   owner_user_id: string;
 }
 
+// ============= RATE LIMITING =============
+const rateLimiter = new Map<string, { count: number; resetAt: number }>();
+
+export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const record = rateLimiter.get(key);
+  
+  if (!record || record.resetAt < now) {
+    rateLimiter.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= limit) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
+// ============= ERROR SANITIZATION =============
+interface SanitizedError {
+  message: string;
+  logDetails: string;
+}
+
+export function sanitizeMLError(status: number, internalError: string): SanitizedError {
+  // User-facing messages (generic, no internal details)
+  const userMessages: Record<number, string> = {
+    400: 'Requisição inválida. Verifique os dados enviados.',
+    401: 'Erro de autenticação. Reconecte sua conta do Mercado Livre.',
+    403: 'Acesso negado. Verifique as permissões da conta.',
+    404: 'Recurso não encontrado.',
+    429: 'Muitas requisições. Aguarde alguns instantes e tente novamente.',
+    500: 'Erro temporário no serviço. Tente novamente em instantes.',
+    502: 'Serviço temporariamente indisponível.',
+    503: 'Serviço temporariamente indisponível.',
+  };
+  
+  return {
+    message: userMessages[status] || 'Erro ao processar requisição. Tente novamente.',
+    logDetails: `[ML API Error ${status}] ${internalError}`,
+  };
+}
+
 export async function getValidToken(mlUserId: number): Promise<MLToken> {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   
@@ -70,9 +115,10 @@ async function refreshToken(refreshTokenStr: string, siteId: string, mlUserId: n
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`❌ Erro ao renovar token ML (${response.status}): ${errorText}`);
+    // Log full error server-side only
+    console.error(`[ML Token Refresh Error ${response.status}] ${errorText}`);
     
-    // Verificar se é erro de refresh token expirado
+    // Check for expired refresh token
     const isInvalidGrant = 
       errorText.includes('invalid_grant') || 
       errorText.includes('expired') ||
@@ -80,10 +126,13 @@ async function refreshToken(refreshTokenStr: string, siteId: string, mlUserId: n
 
     if (isInvalidGrant) {
       console.error(`⚠️ Refresh token expirado para ML user ${mlUserId} - reconexão manual necessária`);
-      throw new Error(`REFRESH_TOKEN_EXPIRED: Conta ${mlUserId} precisa ser reconectada manualmente em /config-ml`);
+      // User-facing message without internal details
+      throw new Error('Sessão expirada. Reconecte sua conta do Mercado Livre em Configurações.');
     }
     
-    throw new Error(`Erro ao renovar token ML: ${errorText}`);
+    // Generic error for client, detailed log kept server-side
+    const { message } = sanitizeMLError(response.status, errorText);
+    throw new Error(message);
   }
 
   const data = await response.json();
@@ -104,7 +153,7 @@ async function refreshToken(refreshTokenStr: string, siteId: string, mlUserId: n
     .eq('ml_user_id', mlUserId);
 
   if (updateError) {
-    console.error(`❌ Erro ao salvar token renovado: ${updateError.message}`);
+    console.error(`[DB Error] Erro ao salvar token renovado: ${updateError.message}`);
   } else {
     console.log(`✅ Token renovado com sucesso para ML user ${mlUserId}, expira em: ${expiresAt.toISOString()}`);
   }
@@ -169,16 +218,21 @@ export async function mlGet(path: string, params: Record<string, string> = {}, m
           attempts++;
           continue;
         }
-        throw new Error(`ML API error: 401 - Token inválido`);
+        // Generic message for client
+        throw new Error('Erro de autenticação. Reconecte sua conta do Mercado Livre.');
       }
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`ML API error: ${response.status} - ${error}`);
+        const rawError = await response.text();
+        // Log full details server-side
+        console.error(`[ML API Error ${response.status}] ${path} - ${rawError}`);
+        // Return sanitized error to client
+        const { message } = sanitizeMLError(response.status, rawError);
+        throw new Error(message);
       }
 
       return await response.json();
-    } catch (error) {
+    } catch (error: any) {
       attempts++;
       if (attempts >= maxAttempts) throw error;
       
@@ -204,8 +258,12 @@ export async function mlPost(path: string, body: any, mlUserId: number): Promise
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`ML API error: ${response.status} - ${error}`);
+    const rawError = await response.text();
+    // Log full details server-side
+    console.error(`[ML API Error ${response.status}] POST ${path} - ${rawError}`);
+    // Return sanitized error to client
+    const { message } = sanitizeMLError(response.status, rawError);
+    throw new Error(message);
   }
 
   return await response.json();
@@ -217,7 +275,8 @@ export async function getShipmentAssignment(shipmentId: string, siteId: string, 
     const path = `/flex/sites/${siteId}/shipments/${shipmentId}/assignment/v2`;
     return await mlGet(path, {}, mlUserId);
   } catch (error: any) {
-    console.error(`Erro ao buscar assignment do shipment ${shipmentId}:`, error);
+    // Log details server-side only
+    console.error(`[Assignment Error] shipment ${shipmentId}: ${error.message}`);
     return null;
   }
 }

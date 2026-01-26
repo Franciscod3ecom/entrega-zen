@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { mlGet } from '../_shared/ml-client.ts';
+import { mlGet, checkRateLimit } from '../_shared/ml-client.ts';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -10,6 +11,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation schema
+const ShipmentHistorySchema = z.object({
+  shipment_id: z.string()
+    .regex(/^\d+$/, 'shipment_id deve conter apenas números')
+    .max(20, 'shipment_id muito longo'),
+  ml_user_id: z.number()
+    .int('ml_user_id deve ser um número inteiro')
+    .positive('ml_user_id deve ser positivo'),
+});
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -17,12 +28,30 @@ serve(async (req) => {
   }
 
   try {
-    const { shipment_id, ml_user_id } = await req.json();
-
-    if (!shipment_id || !ml_user_id) {
+    const body = await req.json();
+    
+    // Validate input with Zod
+    const validation = ShipmentHistorySchema.safeParse(body);
+    
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
       return new Response(
-        JSON.stringify({ error: 'shipment_id e ml_user_id são obrigatórios' }),
+        JSON.stringify({ 
+          error: 'Dados inválidos',
+          message: firstError.message,
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { shipment_id, ml_user_id } = validation.data;
+
+    // Rate limiting: 30 requests per minute per user
+    const rateLimitKey = `shipment-history:${ml_user_id}`;
+    if (!checkRateLimit(rateLimitKey, 30, 60000)) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de requisições excedido. Aguarde um momento.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -52,9 +81,10 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
-    console.error('Erro em get-shipment-history:', error);
+    // Log full error server-side
+    console.error('[get-shipment-history] Erro:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Erro ao buscar histórico.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

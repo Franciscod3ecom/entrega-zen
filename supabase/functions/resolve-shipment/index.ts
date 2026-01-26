@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { mlGet } from '../_shared/ml-client.ts';
+import { mlGet, checkRateLimit } from '../_shared/ml-client.ts';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -10,16 +11,50 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Input validation schema
+const ResolveShipmentSchema = z.object({
+  input_id: z.string()
+    .min(1, 'input_id não pode estar vazio')
+    .max(50, 'input_id muito longo'),
+  ml_user_id: z.number()
+    .int('ml_user_id deve ser um número inteiro')
+    .positive('ml_user_id deve ser positivo'),
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { input_id, ml_user_id } = await req.json();
+    const body = await req.json();
+    
+    // Validate input with Zod
+    const validation = ResolveShipmentSchema.safeParse(body);
+    
+    if (!validation.success) {
+      const firstError = validation.error.errors[0];
+      return new Response(
+        JSON.stringify({ 
+          error: 'Dados inválidos',
+          message: firstError.message,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+    
+    const { input_id, ml_user_id } = validation.data;
 
-    if (!input_id || !ml_user_id) {
-      throw new Error('input_id e ml_user_id são obrigatórios');
+    // Rate limiting: 30 requests per minute per user
+    const rateLimitKey = `resolve-shipment:${ml_user_id}`;
+    if (!checkRateLimit(rateLimitKey, 30, 60000)) {
+      return new Response(
+        JSON.stringify({ error: 'Limite de requisições excedido. Aguarde um momento.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Resolvendo ID:', input_id, 'ml_user:', ml_user_id);
@@ -84,16 +119,18 @@ serve(async (req) => {
             shipmentData = await mlGet(`/shipments/${orderData.shipping.id}`, {}, ml_user_id);
             console.log('Shipment encontrado via order');
           } else {
-            throw new Error('Order não possui shipment associado');
+            throw new Error('Pedido não possui envio associado');
           }
         } catch (orderError: any) {
-          throw new Error(`ID inválido: não é shipment, pack ou order. Erro: ${orderError.message}`);
+          // Log detailed error server-side only
+          console.error(`[resolve-shipment] ID ${input_id} inválido:`, orderError.message);
+          throw new Error('ID inválido. Não foi possível identificar o envio.');
         }
       }
     }
 
     if (!shipmentData) {
-      throw new Error('Não foi possível obter dados do shipment');
+      throw new Error('Não foi possível obter dados do envio');
     }
 
     // Salvar no cache
@@ -115,7 +152,7 @@ serve(async (req) => {
       });
 
     if (cacheError) {
-      console.error('Erro ao salvar cache:', cacheError);
+      console.error('[resolve-shipment] Erro ao salvar cache:', cacheError);
     }
 
     console.log('Shipment resolvido e cacheado com sucesso');
@@ -136,9 +173,10 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Erro em resolve-shipment:', error);
+    // Log full error server-side
+    console.error('[resolve-shipment] Erro:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Erro ao resolver envio.' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
