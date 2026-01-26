@@ -61,15 +61,13 @@ interface AlertItem {
   detected_at: string;
   resolved_at: string | null;
   notes: string | null;
-  drivers: {
-    name: string;
-    phone: string;
-  } | null;
-  shipments_cache: {
-    order_id: string | null;
-    tracking_number: string | null;
-    raw_data: any;
-  } | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  order_id: string | null;
+  pack_id: string | null;
+  cliente_nome: string | null;
+  cidade: string | null;
+  estado: string | null;
 }
 
 export default function OperacoesUnificadas() {
@@ -257,17 +255,36 @@ export default function OperacoesUnificadas() {
 
     if (alertsData && alertsData.length > 0) {
       const shipmentIds = alertsData.map(a => a.shipment_id);
-      const { data: shipmentsData } = await supabase
-        .from("shipments_cache")
-        .select("shipment_id, order_id, tracking_number, raw_data")
+      
+      // Buscar dados enriquecidos da view
+      const { data: enrichedData } = await supabase
+        .from("v_rastreamento_completo")
+        .select("shipment_id, order_id, pack_id, cliente_nome, cidade, estado, motorista_nome, motorista_phone")
         .in("shipment_id", shipmentIds);
 
-      const enrichedAlerts = alertsData.map(alert => ({
-        ...alert,
-        shipments_cache: shipmentsData?.find(s => s.shipment_id === alert.shipment_id) || null,
-      }));
+      const enrichedAlerts: AlertItem[] = alertsData.map(alert => {
+        const shipmentInfo = enrichedData?.find(s => s.shipment_id === alert.shipment_id);
+        return {
+          id: alert.id,
+          shipment_id: alert.shipment_id,
+          alert_type: alert.alert_type,
+          status: alert.status,
+          detected_at: alert.detected_at,
+          resolved_at: alert.resolved_at,
+          notes: alert.notes,
+          driver_name: alert.drivers?.name || shipmentInfo?.motorista_nome || null,
+          driver_phone: alert.drivers?.phone || shipmentInfo?.motorista_phone || null,
+          order_id: shipmentInfo?.order_id || null,
+          pack_id: shipmentInfo?.pack_id || null,
+          cliente_nome: shipmentInfo?.cliente_nome || null,
+          cidade: shipmentInfo?.cidade || null,
+          estado: shipmentInfo?.estado || null,
+        };
+      });
 
       setAlerts(enrichedAlerts);
+    } else {
+      setAlerts([]);
     }
   };
 
@@ -317,13 +334,14 @@ export default function OperacoesUnificadas() {
     if (searchTerm) {
       filteredAlts = filteredAlts.filter(alert =>
         alert.shipment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        alert.shipments_cache?.order_id?.toLowerCase().includes(searchTerm.toLowerCase())
+        alert.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        alert.cliente_nome?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (driverFilter !== "all") {
       filteredAlts = filteredAlts.filter(alert =>
-        alert.drivers?.name.includes(driverFilter)
+        alert.driver_name?.includes(driverFilter)
       );
     }
 
@@ -422,10 +440,6 @@ export default function OperacoesUnificadas() {
     return labels[type] || type;
   };
 
-  const getClientName = (rawData: any) => {
-    if (!rawData) return "N/A";
-    return rawData.receiver?.first_name || rawData.buyer?.nickname || "Cliente";
-  };
 
   const metrics = {
     totalEnvios: shipments.length,
@@ -923,8 +937,17 @@ export default function OperacoesUnificadas() {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0 flex-1">
+                          {/* Pedido/Pack ID */}
+                          {(alert.order_id || alert.pack_id) && (
+                            <p className="text-xs text-primary font-medium mb-0.5">
+                              {alert.pack_id ? `Pacote: ${alert.pack_id}` : `Pedido: ${alert.order_id}`}
+                            </p>
+                          )}
                           <p className="font-mono text-sm font-semibold truncate">{alert.shipment_id}</p>
-                          <p className="text-sm text-muted-foreground">{getClientName(alert.shipments_cache?.raw_data)}</p>
+                          <p className="text-sm text-muted-foreground">{alert.cliente_nome || 'Cliente não identificado'}</p>
+                          {alert.cidade && (
+                            <p className="text-xs text-muted-foreground">📍 {alert.cidade}{alert.estado ? `, ${alert.estado}` : ''}</p>
+                          )}
                         </div>
                         <Badge variant={alert.status === "pending" ? "destructive" : "secondary"}>
                           {getAlertTypeLabel(alert.alert_type)}
@@ -932,10 +955,10 @@ export default function OperacoesUnificadas() {
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="text-xs text-muted-foreground">
-                          {alert.drivers?.name && (
+                          {alert.driver_name && (
                             <span className="flex items-center gap-1">
                               <Truck className="h-3 w-3" />
-                              {alert.drivers.name}
+                              {alert.driver_name}
                             </span>
                           )}
                         </div>
@@ -970,6 +993,7 @@ export default function OperacoesUnificadas() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Código</TableHead>
+                    <TableHead>Pedido</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Motorista</TableHead>
@@ -981,7 +1005,7 @@ export default function OperacoesUnificadas() {
                 <TableBody>
                   {filteredAlerts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                         Nenhum alerta encontrado
                       </TableCell>
                     </TableRow>
@@ -992,15 +1016,30 @@ export default function OperacoesUnificadas() {
                         className={newItemIds.has(alert.id) ? "animate-pulse bg-primary/5" : ""}
                       >
                         <TableCell className="font-mono text-sm">{alert.shipment_id}</TableCell>
-                        <TableCell>{getClientName(alert.shipments_cache?.raw_data)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {alert.pack_id && <div className="text-sm font-medium">Pacote: {alert.pack_id}</div>}
+                            {alert.order_id && !alert.pack_id && <div className="text-sm font-medium">Pedido: {alert.order_id}</div>}
+                            {alert.order_id && alert.pack_id && <div className="text-xs text-muted-foreground">Pedido: {alert.order_id}</div>}
+                            {!alert.order_id && !alert.pack_id && <span className="text-muted-foreground">—</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{alert.cliente_nome || 'Não identificado'}</div>
+                            {alert.cidade && (
+                              <div className="text-xs text-muted-foreground">{alert.cidade}{alert.estado ? ` - ${alert.estado}` : ''}</div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">{getAlertTypeLabel(alert.alert_type)}</Badge>
                         </TableCell>
                         <TableCell>
-                          {alert.drivers ? (
+                          {alert.driver_name ? (
                             <div>
-                              <div className="text-sm font-medium">{alert.drivers.name}</div>
-                              <div className="text-xs text-muted-foreground">{alert.drivers.phone}</div>
+                              <div className="text-sm font-medium">{alert.driver_name}</div>
+                              {alert.driver_phone && <div className="text-xs text-muted-foreground">{alert.driver_phone}</div>}
                             </div>
                           ) : (
                             <span className="text-muted-foreground">—</span>
