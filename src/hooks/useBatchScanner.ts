@@ -6,7 +6,7 @@ export interface PendingItem {
   code: string;
   shipmentId: string;
   scannedAt: Date;
-  status: "pending" | "syncing" | "success" | "error";
+  status: "pending" | "syncing" | "success" | "error" | "duplicate";
   errorMessage?: string;
   accountNickname?: string;
   shipmentStatus?: string;
@@ -16,6 +16,7 @@ interface UseBatchScannerOptions {
   driverId: string;
   autoSyncIntervalMs?: number;
   onSyncComplete?: (results: PendingItem[]) => void;
+  onDuplicateScan?: (shipmentId: string) => void;
 }
 
 interface UseBatchScannerReturn {
@@ -29,6 +30,7 @@ interface UseBatchScannerReturn {
   pendingCount: number;
   syncedCount: number;
   errorCount: number;
+  duplicateCount: number;
 }
 
 const COOLDOWN_MS = 3000;
@@ -38,6 +40,7 @@ export function useBatchScanner({
   driverId,
   autoSyncIntervalMs = AUTO_SYNC_INTERVAL,
   onSyncComplete,
+  onDuplicateScan,
 }: UseBatchScannerOptions): UseBatchScannerReturn {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [syncedItems, setSyncedItems] = useState<PendingItem[]>([]);
@@ -45,6 +48,9 @@ export function useBatchScanner({
   
   const recentCodesRef = useRef<Map<string, number>>(new Map());
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // FASE 6: Set persistente de todos os shipmentIds já escaneados na sessão
+  const sessionScannedIdsRef = useRef<Set<string>>(new Set());
 
   // Extrair shipment ID do código (QR JSON, URL, ou ID direto)
   const extractShipmentId = useCallback((code: string): string | null => {
@@ -91,17 +97,51 @@ export function useBatchScanner({
       return false;
     }
 
-    // Verificar se já está na fila
+    // FASE 6: Verificar se já foi escaneado na sessão inteira
+    if (sessionScannedIdsRef.current.has(shipmentId)) {
+      console.log("[BatchScanner] Código já escaneado nesta sessão:", shipmentId);
+      
+      // Feedback tátil diferenciado (2 vibrações curtas)
+      if ('vibrate' in navigator) {
+        navigator.vibrate([30, 50, 30]);
+      }
+      
+      // Som diferente para duplicado
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 400; // Tom mais grave para duplicado
+        gainNode.gain.value = 0.05;
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+      } catch {}
+      
+      onDuplicateScan?.(shipmentId);
+      return false;
+    }
+
+    // Verificar se já está na fila (ainda não sincronizado)
     const existsInPending = pendingItems.some(item => item.shipmentId === shipmentId);
     const existsInSynced = syncedItems.some(item => item.shipmentId === shipmentId && item.status === "success");
     
     if (existsInPending || existsInSynced) {
       console.log("[BatchScanner] Código já processado:", shipmentId);
+      
+      // Feedback para duplicado
+      if ('vibrate' in navigator) {
+        navigator.vibrate([30, 50, 30]);
+      }
+      
+      onDuplicateScan?.(shipmentId);
       return false;
     }
 
-    // Registrar no cooldown
+    // Registrar no cooldown e no set de sessão
     recentCodesRef.current.set(shipmentId, now);
+    sessionScannedIdsRef.current.add(shipmentId);
 
     // Adicionar à fila
     const newItem: PendingItem = {
@@ -134,7 +174,7 @@ export function useBatchScanner({
     } catch {}
 
     return true;
-  }, [extractShipmentId, pendingItems, syncedItems]);
+  }, [extractShipmentId, pendingItems, syncedItems, onDuplicateScan]);
 
   // Sincronizar todos os pendentes
   const syncNow = useCallback(async () => {
@@ -172,6 +212,19 @@ export function useBatchScanner({
             });
 
             if (error) throw error;
+            
+            // FASE 6: Se o backend retornar que já está com o mesmo motorista,
+            // marcar como duplicado e não incrementar contagem
+            if (data.already_assigned) {
+              return {
+                ...item,
+                status: "duplicate" as const,
+                accountNickname: data.account_nickname,
+                shipmentStatus: data.status,
+                errorMessage: "Já está com este motorista",
+              };
+            }
+            
             if (!data.success) throw new Error(data.error || "Erro desconhecido");
 
             return {
@@ -182,10 +235,22 @@ export function useBatchScanner({
             };
           } catch (err: any) {
             console.error(`[BatchScanner] Erro ao sincronizar ${item.shipmentId}:`, err);
+            
+            // Se o erro for de "já atribuído ao mesmo motorista", tratar como duplicado
+            const errorMsg = err.message || "Erro ao vincular";
+            if (errorMsg.toLowerCase().includes("mesmo motorista") || 
+                errorMsg.toLowerCase().includes("already assigned")) {
+              return {
+                ...item,
+                status: "duplicate" as const,
+                errorMessage: errorMsg,
+              };
+            }
+            
             return {
               ...item,
               status: "error" as const,
-              errorMessage: err.message || "Erro ao vincular",
+              errorMessage: errorMsg,
             };
           }
         })
@@ -197,23 +262,27 @@ export function useBatchScanner({
     // Atualizar estados
     const successItems = results.filter(r => r.status === "success");
     const errorItems = results.filter(r => r.status === "error");
+    const duplicateItems = results.filter(r => r.status === "duplicate");
 
-    // Mover itens sincronizados para syncedItems
+    // Mover itens sincronizados (sucesso) para syncedItems - NÃO inclui duplicados
     setSyncedItems(prev => [...successItems, ...prev]);
     
-    // Atualizar pendingItems (manter erros para retry, remover sucessos)
+    // Atualizar pendingItems (manter erros para retry, remover sucessos e duplicados)
     setPendingItems(prev => 
       prev.map(item => {
         const result = results.find(r => r.id === item.id);
         if (result) {
-          return result.status === "error" ? { ...result, status: "pending" as const } : result;
+          if (result.status === "error") {
+            return { ...result, status: "pending" as const };
+          }
+          return result;
         }
         return item;
-      }).filter(item => item.status !== "success")
+      }).filter(item => item.status !== "success" && item.status !== "duplicate")
     );
 
     setIsSyncing(false);
-    console.log(`[BatchScanner] Sync completo: ${successItems.length} sucesso, ${errorItems.length} erros`);
+    console.log(`[BatchScanner] Sync completo: ${successItems.length} sucesso, ${duplicateItems.length} duplicados, ${errorItems.length} erros`);
 
     // Feedback sonoro de conclusão
     if (successItems.length > 0) {
@@ -238,6 +307,7 @@ export function useBatchScanner({
     setPendingItems([]);
     setSyncedItems([]);
     recentCodesRef.current.clear();
+    sessionScannedIdsRef.current.clear();
   }, []);
 
   // Remover item específico
@@ -282,5 +352,6 @@ export function useBatchScanner({
     pendingCount: pendingItems.filter(i => i.status === "pending").length,
     syncedCount: syncedItems.filter(i => i.status === "success").length,
     errorCount: pendingItems.filter(i => i.status === "error").length + syncedItems.filter(i => i.status === "error").length,
+    duplicateCount: pendingItems.filter(i => i.status === "duplicate").length,
   };
 }

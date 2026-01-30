@@ -16,7 +16,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[sync-all-accounts] Iniciando sincronização de todas as contas');
+    const body = await req.json().catch(() => ({}));
+    const days_back = Math.min(body.days_back || 7, 30); // FASE 3: Limite de 7 dias
+    
+    console.log(`[sync-all-accounts] Iniciando sincronização (últimos ${days_back} dias)`);
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Buscar todas as contas ML
@@ -50,10 +53,16 @@ serve(async (req) => {
       const limit = 50;
 
       try {
+        // FASE 3: Calcular data limite
+        const now = new Date();
+        const dateFrom = new Date(now.getTime() - days_back * 24 * 60 * 60 * 1000);
+        const dateFromStr = dateFrom.toISOString().split('T')[0];
+        
         while (true) {
           const ordersResponse = await mlGet('/orders/search', {
             seller: account.ml_user_id.toString(),
             'order.status': 'paid',
+            'order.date_created.from': `${dateFromStr}T00:00:00.000-03:00`,
             offset: offset.toString(),
             limit: limit.toString(),
           }, account.ml_user_id);
@@ -84,11 +93,21 @@ serve(async (req) => {
                   continue;
                 }
 
-                shipmentData.buyer_info = {
+                // FASE 1: Criar dados slim
+                const buyerInfo = {
                   name: `${orderData.buyer?.first_name || ''} ${orderData.buyer?.last_name || ''}`.trim(),
                   nickname: orderData.buyer?.nickname || null,
                   city: orderData.shipping?.receiver_address?.city?.name || null,
                   state: orderData.shipping?.receiver_address?.state?.name || null,
+                };
+                
+                const slimRawData = {
+                  id: shipmentData.id,
+                  status: shipmentData.status,
+                  substatus: shipmentData.substatus,
+                  logistic: { type: shipmentData.logistic?.type, mode: shipmentData.logistic?.mode },
+                  buyer_info: buyerInfo,
+                  tracking_number: shipmentData.tracking_number,
                 };
 
                 const { error: cacheError } = await supabase
@@ -103,7 +122,10 @@ serve(async (req) => {
                     last_ml_update: new Date().toISOString(),
                     owner_user_id: account.owner_user_id,
                     ml_account_id: account.id,
-                    raw_data: shipmentData,
+                    cliente_nome: buyerInfo.name || null,
+                    cidade: buyerInfo.city || null,
+                    estado: buyerInfo.state || null,
+                    raw_data: slimRawData,
                   }, {
                     onConflict: 'shipment_id,owner_user_id',
                   });

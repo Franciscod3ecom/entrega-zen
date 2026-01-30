@@ -24,15 +24,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, RefreshCw, Loader2, TrendingUp, AlertTriangle, Truck, CheckCircle, History, Clock, CheckCircle2, PackageCheck, Wifi, Filter, ChevronRight } from "lucide-react";
+import { Search, Package, RefreshCw, Loader2, TrendingUp, AlertTriangle, Truck, CheckCircle, History, Clock, CheckCircle2, PackageCheck, Wifi, Filter, ChevronRight, FileText, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatBRT } from "@/lib/date-utils";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { DateRangeFilter, DatePreset } from "@/components/DateRangeFilter";
+import { generatePendingReportPDF } from "@/components/PendingReportPDF";
 
 interface RastreamentoItem {
   shipment_id: string;
@@ -88,6 +90,16 @@ export default function OperacoesUnificadas() {
   const [drivers, setDrivers] = useState<Array<{ id: string; name: string }>>([]);
   const [mlAccounts, setMlAccounts] = useState<Array<{ id: string; nickname: string; ml_user_id: number }>>([]);
   const [activeView, setActiveView] = useState<"rastreamento" | "alertas">("rastreamento");
+  
+  // FASE 4: Filtro de data
+  const [datePreset, setDatePreset] = useState<DatePreset>("7days");
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: subDays(new Date(), 7),
+    to: new Date(),
+  });
+  
+  // FASE 5: Estado para exportação PDF
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Cores para badges de contas ML
   const accountColors = [
@@ -211,7 +223,7 @@ export default function OperacoesUnificadas() {
 
   useEffect(() => {
     applyFilters();
-  }, [searchTerm, driverFilter, statusFilter, alertTypeFilter, shipments, alerts, activeView]);
+  }, [searchTerm, driverFilter, statusFilter, alertTypeFilter, accountFilter, shipments, alerts, activeView, dateRange]);
 
   const loadAllData = async () => {
     setLoading(true);
@@ -300,6 +312,14 @@ export default function OperacoesUnificadas() {
   const applyFilters = () => {
     let filteredShips = shipments;
 
+    // FASE 4: Filtro de data
+    if (dateRange.from && dateRange.to) {
+      filteredShips = filteredShips.filter(item => {
+        const itemDate = new Date(item.last_ml_update);
+        return itemDate >= dateRange.from && itemDate <= dateRange.to;
+      });
+    }
+
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       filteredShips = filteredShips.filter(item =>
@@ -331,6 +351,14 @@ export default function OperacoesUnificadas() {
 
     let filteredAlts = alerts;
 
+    // FASE 4: Filtro de data para alertas também
+    if (dateRange.from && dateRange.to) {
+      filteredAlts = filteredAlts.filter(alert => {
+        const alertDate = new Date(alert.detected_at);
+        return alertDate >= dateRange.from && alertDate <= dateRange.to;
+      });
+    }
+
     if (searchTerm) {
       filteredAlts = filteredAlts.filter(alert =>
         alert.shipment_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -354,6 +382,30 @@ export default function OperacoesUnificadas() {
     }
 
     setFilteredAlerts(filteredAlts);
+  };
+  
+  // FASE 5: Handler para exportar PDF
+  const handleExportPDF = () => {
+    setIsExportingPDF(true);
+    try {
+      const pendingAlerts = filteredAlerts.filter(a => a.status === "pending");
+      if (pendingAlerts.length === 0) {
+        toast.error("Nenhum alerta pendente para exportar");
+        return;
+      }
+      
+      const fileName = generatePendingReportPDF({
+        alerts: pendingAlerts,
+        filterDriver: driverFilter !== "all" ? driverFilter : undefined,
+        title: "Relatório de Pendências para Devolução",
+      });
+      
+      toast.success(`📄 PDF gerado: ${fileName}`);
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao gerar PDF");
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
 
   const handleRefresh = async (shipmentId: string, mlUserId: number) => {
@@ -478,7 +530,7 @@ export default function OperacoesUnificadas() {
               Rastreamento e alertas em tempo real
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge 
               variant="outline" 
               className={cn(
@@ -489,6 +541,17 @@ export default function OperacoesUnificadas() {
               <Wifi className="h-3 w-3 mr-1.5" />
               {realtimeConnected ? "Realtime" : "Conectando"}
             </Badge>
+            
+            {/* FASE 4: Filtro de data */}
+            <DateRangeFilter
+              value={datePreset}
+              customRange={dateRange}
+              onChange={(preset, range) => {
+                setDatePreset(preset);
+                setDateRange(range);
+              }}
+            />
+            
             <Button 
               variant="default" 
               size="sm" 
@@ -502,10 +565,6 @@ export default function OperacoesUnificadas() {
                 <RefreshCw className="h-4 w-4 md:mr-2" />
               )}
               <span className="hidden md:inline">{syncingAll ? "Sincronizando..." : "Sincronizar ML"}</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={loadAllData} className="rounded-lg h-9">
-              <RefreshCw className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Atualizar</span>
             </Button>
           </div>
         </div>
@@ -915,7 +974,26 @@ export default function OperacoesUnificadas() {
           </TabsContent>
 
           {/* Alerts Tab */}
-          <TabsContent value="alertas" className="mt-4">
+          <TabsContent value="alertas" className="mt-4 space-y-4">
+            {/* FASE 5: Botão exportar PDF */}
+            {filteredAlerts.filter(a => a.status === "pending").length > 0 && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={isExportingPDF}
+                  className="rounded-xl h-10"
+                >
+                  {isExportingPDF ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Exportar PDF
+                </Button>
+              </div>
+            )}
+            
             {/* Mobile Card List */}
             <div className="md:hidden space-y-3">
               {filteredAlerts.length === 0 ? (

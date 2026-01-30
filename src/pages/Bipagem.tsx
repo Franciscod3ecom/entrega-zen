@@ -40,11 +40,13 @@ export default function Bipagem() {
     onSyncComplete: (results) => {
       const successCount = results.filter(r => r.status === "success").length;
       const errorCount = results.filter(r => r.status === "error").length;
+      const duplicateCount = results.filter(r => r.status === "duplicate").length;
       
       if (successCount > 0) {
         toast({
           title: `✅ ${successCount} pacote${successCount > 1 ? 's' : ''} vinculado${successCount > 1 ? 's' : ''}`,
-          description: errorCount > 0 ? `${errorCount} erro${errorCount > 1 ? 's' : ''}` : undefined,
+          description: duplicateCount > 0 ? `${duplicateCount} já bipado${duplicateCount > 1 ? 's' : ''}` : 
+                       errorCount > 0 ? `${errorCount} erro${errorCount > 1 ? 's' : ''}` : undefined,
         });
       } else if (errorCount > 0) {
         toast({
@@ -52,6 +54,12 @@ export default function Bipagem() {
           variant: "destructive",
         });
       }
+    },
+    onDuplicateScan: (shipmentId) => {
+      toast({
+        title: "⚠️ Já escaneado",
+        description: `Pacote ${shipmentId} já foi bipado nesta sessão`,
+      });
     },
   });
 
