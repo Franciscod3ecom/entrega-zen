@@ -4,14 +4,14 @@ import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle, ArrowRight, Wifi, WifiOff, Activity } from "lucide-react";
+import { Package, TrendingUp, TrendingDown, Truck, AlertCircle, Clock, Loader2, RefreshCw, Search, ExternalLink, CheckCircle, ArrowRight, Wifi, WifiOff, Activity, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import DiagnosticReportModal from "@/components/DiagnosticReportModal";
+import SyncStatusModal, { useNextSyncTime } from "@/components/SyncStatusModal";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
 interface DashboardStats {
   totalShipments: number;
   delivered: number;
@@ -53,6 +53,8 @@ export default function Dashboard() {
   const [diagnosticReport, setDiagnosticReport] = useState<any>(null);
   const [isCleaning, setIsCleaning] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<any>(null);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const nextSyncTime = useNextSyncTime();
 
   const { data: pendenciasData } = useQuery({
     queryKey: ['dashboard-pendencias'],
@@ -337,6 +339,15 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+              {/* Próxima Sync Auto */}
+              <div className="p-ios-3 rounded-ios-md bg-primary/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <CalendarClock className="h-4 w-4 text-primary" />
+                  <span className="text-caption1 text-text-tertiary">Próx. Sync Auto</span>
+                </div>
+                <div className="text-callout font-medium text-primary">{nextSyncTime}</div>
+              </div>
+
                 {/* Contas ML */}
                 <div className="p-3 rounded-xl bg-muted/50">
                   <div className="flex items-center gap-2 mb-1">
@@ -486,30 +497,12 @@ export default function Dashboard() {
             <CardContent>
               <div className="grid grid-cols-2 gap-ios-3">
                 <Button
-                  onClick={async () => {
-                    setIsSyncingAll(true);
-                    try {
-                      toast.info('🔄 Sincronizando...');
-                      // Sincronizar contas + atualizar status
-                      await supabase.functions.invoke("sync-all-accounts", { body: { days_back: 7 } });
-                      await supabase.functions.invoke("auto-refresh-shipments");
-                      toast.success('✅ Sincronização concluída!');
-                      await loadStats();
-                    } catch (error: any) {
-                      toast.error(error.message || "Erro ao sincronizar");
-                    } finally {
-                      setIsSyncingAll(false);
-                    }
-                  }}
+                  onClick={() => setSyncModalOpen(true)}
                   disabled={isSyncingAll}
                   variant="ios-primary"
                   className="h-auto py-ios-5 flex-col gap-2 rounded-ios-lg ios-pressed"
                 >
-                  {isSyncingAll ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-6 w-6" />
-                  )}
+                  <RefreshCw className="h-6 w-6" />
                   <span className="text-callout font-medium">Sincronizar Tudo</span>
                   <span className="text-caption2 text-text-tertiary">Importar + Atualizar</span>
                 </Button>
@@ -554,6 +547,13 @@ export default function Dashboard() {
           </Card>
         </div>
       </Layout>
+
+      {/* Sync Status Modal */}
+      <SyncStatusModal
+        open={syncModalOpen}
+        onOpenChange={setSyncModalOpen}
+        onComplete={() => loadStats()}
+      />
 
       {/* Diagnostic Modal */}
       <DiagnosticReportModal
