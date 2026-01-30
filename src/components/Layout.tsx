@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home } from "lucide-react";
+import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { InstallAppPrompt } from "@/components/InstallAppPrompt";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -34,7 +35,7 @@ const bottomNavItems: NavItem[] = [
   { to: "/dashboard", icon: Home, label: "Início" },
   { to: "/bipagem", icon: Scan, label: "Bipar" },
   { to: "/operacoes", icon: Route, label: "Operações" },
-  { to: "/config-ml", icon: Settings, label: "Config" },
+  { to: "/instalar", icon: Download, label: "App" },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -158,6 +159,9 @@ export default function Layout({ children }: LayoutProps) {
           ))}
         </div>
       </nav>
+
+      {/* Install App Prompt - Mobile only */}
+      <InstallAppPrompt />
     </div>
   );
 }
