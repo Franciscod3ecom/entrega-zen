@@ -16,6 +16,10 @@ import Ajuda from "./pages/Ajuda";
 import ConfigML from "./pages/ConfigML";
 import MLCallback from "./pages/MLCallback";
 import NotFound from "./pages/NotFound";
+import Instalar from "./pages/Instalar";
+import MotoristaLogin from "./pages/motorista/Login";
+import MotoristaDashboard from "./pages/motorista/Dashboard";
+import MotoristaBipar from "./pages/motorista/Bipar";
 
 const queryClient = new QueryClient();
 
@@ -59,7 +63,15 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Auth />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/instalar" element={<Instalar />} />
           <Route path="/ml/callback" element={<MLCallback />} />
+          
+          {/* Portal do Motorista - Rotas públicas/semi-públicas */}
+          <Route path="/motorista/login" element={<MotoristaLogin />} />
+          <Route path="/motorista/dashboard" element={<MotoristaDashboard />} />
+          <Route path="/motorista/bipar" element={<MotoristaBipar />} />
+          
+          {/* Rotas protegidas do Admin/Ops */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/operacoes" element={<ProtectedRoute><OperacoesUnificadas /></ProtectedRoute>} />
           {/* Redirects das telas antigas para a nova tela unificada */}

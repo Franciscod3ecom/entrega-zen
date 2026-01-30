@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 export interface PendingItem {
   id: string;
@@ -45,6 +46,9 @@ export function useBatchScanner({
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [syncedItems, setSyncedItems] = useState<PendingItem[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // FASE 4: Query client para invalidação de cache
+  const queryClient = useQueryClient();
   
   const recentCodesRef = useRef<Map<string, number>>(new Map());
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -299,8 +303,12 @@ export function useBatchScanner({
       } catch {}
     }
 
+    // FASE 4: Invalidar cache de shipments para forçar refetch
+    await queryClient.invalidateQueries({ queryKey: ['shipments'] });
+    await queryClient.invalidateQueries({ queryKey: ['v_rastreamento_completo'] });
+
     onSyncComplete?.(results);
-  }, [pendingItems, isSyncing, driverId, onSyncComplete]);
+  }, [pendingItems, isSyncing, driverId, queryClient, onSyncComplete]);
 
   // Limpar tudo
   const clearAll = useCallback(() => {
