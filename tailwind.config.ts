@@ -13,6 +13,20 @@ export default {
       },
     },
     extend: {
+      spacing: {
+        // iOS 4pt Grid Spacing
+        'ios-0': '0px',
+        'ios-1': '4px',
+        'ios-2': '8px',
+        'ios-3': '12px',
+        'ios-4': '16px',
+        'ios-5': '20px',
+        'ios-6': '24px',
+        'ios-7': '32px',
+        'ios-8': '40px',
+        'ios-9': '48px',
+        'ios-10': '64px',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -26,6 +40,35 @@ export default {
           hover: "hsl(var(--gold-hover))",
           glow: "hsl(var(--gold-glow))",
         },
+
+        // Brand - iOS Yellow Style
+        brand: {
+          DEFAULT: "hsl(var(--brand-primary))",
+          primary: "hsl(var(--brand-primary))",
+          soft: "hsl(var(--brand-primary-soft))",
+          strong: "hsl(var(--brand-primary-strong))",
+        },
+
+        // Text - iOS Style
+        text: {
+          primary: "hsl(var(--text-primary))",
+          secondary: "hsl(var(--text-secondary))",
+          tertiary: "hsl(var(--text-tertiary))",
+          muted: "hsl(var(--text-muted))",
+          link: "hsl(var(--text-link))",
+        },
+
+        // State Colors - iOS
+        state: {
+          success: "hsl(var(--state-success))",
+          warning: "hsl(var(--state-warning))",
+          error: "hsl(var(--state-error))",
+          info: "hsl(var(--state-info))",
+        },
+
+        // Border - iOS Style
+        "border-subtle": "hsl(var(--border-subtle))",
+        "border-strong": "hsl(var(--border-strong))",
         
         // Surfaces
         surface: {
@@ -81,6 +124,14 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      transitionDuration: {
+        'ios-fast': 'var(--duration-fast)',
+        'ios-default': 'var(--duration-default)',
+        'ios-slow': 'var(--duration-slow)',
+      },
+      transitionTimingFunction: {
+        'ios': 'var(--ease-ios)',
+      },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-secondary': 'var(--gradient-secondary)',
@@ -103,9 +154,30 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // iOS Border Radius
+        'ios-none': '0px',
+        'ios-xs': '4px',
+        'ios-sm': '8px',
+        'ios-md': '12px',
+        'ios-lg': '20px',
+        'ios-full': '999px',
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['"SF Pro"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Inter', 'sans-serif'],
+        mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', '"Liberation Mono"', 'monospace'],
+      },
+      fontSize: {
+        // iOS Typography Scale
+        'display-lg': ['34px', { lineHeight: '40px', letterSpacing: '0.37px', fontWeight: '700' }],
+        'title-lg': ['28px', { lineHeight: '34px', letterSpacing: '0.36px', fontWeight: '700' }],
+        'title-md': ['22px', { lineHeight: '28px', letterSpacing: '0.35px', fontWeight: '600' }],
+        'title-sm': ['20px', { lineHeight: '24px', letterSpacing: '0.38px', fontWeight: '600' }],
+        'headline': ['17px', { lineHeight: '22px', letterSpacing: '-0.41px', fontWeight: '600' }],
+        'body': ['17px', { lineHeight: '22px', letterSpacing: '-0.41px', fontWeight: '400' }],
+        'callout': ['16px', { lineHeight: '21px', letterSpacing: '-0.32px', fontWeight: '400' }],
+        'subhead': ['15px', { lineHeight: '20px', letterSpacing: '-0.24px', fontWeight: '400' }],
+        'caption-ios': ['13px', { lineHeight: '18px', letterSpacing: '-0.08px', fontWeight: '400' }],
+        'footnote': ['12px', { lineHeight: '16px', letterSpacing: '0px', fontWeight: '400' }],
       },
       keyframes: {
         "accordion-down": {

@@ -15,6 +15,12 @@ const badgeVariants = cva(
         success: "border-transparent bg-success text-success-foreground",
         warning: "border-transparent bg-warning text-warning-foreground",
         gold: "border-transparent bg-gradient-primary text-primary-foreground shadow-sm",
+        // iOS Style variants
+        "outline-gold": "bg-transparent border-primary text-primary border",
+        "ios-success": "border-transparent text-success-foreground",
+        "ios-warning": "border-transparent text-warning-foreground",
+        "ios-error": "border-transparent text-destructive-foreground",
+        "ios-info": "border-transparent text-foreground",
       },
     },
     defaultVariants: {
