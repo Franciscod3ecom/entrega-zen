@@ -137,7 +137,7 @@ export default function Bipagem() {
       <div className="fixed inset-0 z-50 bg-black">
         {/* Camera view */}
         <div className="absolute inset-0">
-          <BarcodeScanner onScan={handleScanResult} isActive={isScanning} />
+          <BarcodeScanner onScan={handleScanResult} isActive={isScanning} fullscreen />
         </div>
 
         {/* Top overlay - status */}
