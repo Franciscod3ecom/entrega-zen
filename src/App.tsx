@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PWAUpdatePrompt } from "@/components/PWAUpdatePrompt";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import OperacoesUnificadas from "./pages/OperacoesUnificadas";
@@ -20,6 +21,7 @@ import Instalar from "./pages/Instalar";
 import MotoristaLogin from "./pages/motorista/Login";
 import MotoristaDashboard from "./pages/motorista/Dashboard";
 import MotoristaBipar from "./pages/motorista/Bipar";
+
 const queryClient = new QueryClient();
 
 // Componente de rota protegida
@@ -58,6 +60,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <PWAUpdatePrompt />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Auth />} />
