@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package } from "lucide-react";
+import { Package, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -126,102 +126,117 @@ export default function Auth() {
       </div>
 
       {/* Card */}
-      <Card className="relative z-10 w-full max-w-md animate-fade-in-zoom">
+      <Card variant="ios" className="relative z-10 w-full max-w-md animate-fade-in-zoom ios-card-shadow">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-gold animate-pulse-gold">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-ios-lg bg-gradient-primary shadow-gold animate-pulse-gold">
             <Package className="h-8 w-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold text-gold-gradient">RASTREIO_FLEX</CardTitle>
-          <CardDescription className="text-muted-foreground">Sistema de rastreamento Mercado Envios Flex</CardDescription>
+          <CardTitle className="text-title-lg text-gold-gradient">RASTREIO_FLEX</CardTitle>
+          <CardDescription className="text-callout text-text-secondary">Sistema de rastreamento Mercado Envios Flex</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 liquid-glass-subtle rounded-xl p-1 mb-6">
+            <TabsList className="grid w-full grid-cols-2 rounded-ios-lg p-1 mb-6">
               <TabsTrigger 
                 value="login" 
-                className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary"
+                className="rounded-ios-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary ios-pressed"
               >
                 Login
               </TabsTrigger>
               <TabsTrigger 
                 value="signup"
-                className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary"
+                className="rounded-ios-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary ios-pressed"
               >
                 Cadastro
               </TabsTrigger>
             </TabsList>
             
             <TabsContent value="login" className="animate-fade-in">
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-ios-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
+                  <Label htmlFor="login-email" className="text-callout font-medium">Email</Label>
                   <Input
                     id="login-email"
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="h-12 rounded-ios-md"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password" className="text-sm font-medium">Senha</Label>
+                  <Label htmlFor="login-password" className="text-callout font-medium">Senha</Label>
                   <Input
                     id="login-password"
                     type="password"
                     placeholder="••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 rounded-ios-md"
                     required
                   />
                 </div>
-                <Button type="submit" variant="gold" className="w-full" disabled={loading}>
+                <Button type="submit" variant="gold" size="ios-default" className="w-full ios-pressed" disabled={loading}>
                   {loading ? "Entrando..." : "Entrar"}
                 </Button>
               </form>
             </TabsContent>
             
             <TabsContent value="signup" className="animate-fade-in">
-              <form onSubmit={handleSignup} className="space-y-4">
+              <form onSubmit={handleSignup} className="space-y-ios-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name" className="text-sm font-medium">Nome</Label>
+                  <Label htmlFor="signup-name" className="text-callout font-medium">Nome</Label>
                   <Input
                     id="signup-name"
                     type="text"
                     placeholder="Seu nome"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    className="h-12 rounded-ios-md"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-sm font-medium">Email</Label>
+                  <Label htmlFor="signup-email" className="text-callout font-medium">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="h-12 rounded-ios-md"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-sm font-medium">Senha</Label>
+                  <Label htmlFor="signup-password" className="text-callout font-medium">Senha</Label>
                   <Input
                     id="signup-password"
                     type="password"
                     placeholder="••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    className="h-12 rounded-ios-md"
                     required
                   />
                 </div>
-                <Button type="submit" variant="gold" className="w-full" disabled={loading}>
+                <Button type="submit" variant="gold" size="ios-default" className="w-full ios-pressed" disabled={loading}>
                   {loading ? "Criando conta..." : "Criar conta"}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
+
+          {/* Driver Portal Link */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <Button variant="ghost" asChild className="w-full h-12 rounded-ios-md ios-pressed gap-2">
+              <Link to="/motorista/login">
+                <Truck className="h-5 w-5" />
+                Portal do Motorista
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
