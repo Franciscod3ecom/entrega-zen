@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { cn } from '@/lib/utils';
 
 interface BarcodeScannerProps {
   onScan: (code: string) => void;
   isActive: boolean;
+  fullscreen?: boolean;
 }
 
-export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps) {
+export default function BarcodeScanner({ onScan, isActive, fullscreen = false }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<any>(null);
   const lastScannedRef = useRef<string>('');
@@ -138,25 +140,38 @@ export default function BarcodeScanner({ onScan, isActive }: BarcodeScannerProps
   }
 
   return (
-    <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+    <div 
+      className={cn(
+        "relative",
+        fullscreen ? "absolute inset-0" : "w-full"
+      )} 
+      style={fullscreen ? undefined : { aspectRatio: '16/9' }}
+    >
       <video
         ref={videoRef}
-        className="w-full h-full object-cover rounded-lg"
+        className={cn(
+          "object-cover",
+          fullscreen 
+            ? "absolute inset-0 w-full h-full" 
+            : "w-full h-full rounded-lg"
+        )}
         playsInline
         muted
       />
       
-      {/* Overlay de guia simplificado */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="border-2 border-primary rounded-lg w-48 h-48 opacity-80" />
-      </div>
-
-      {/* Instrução */}
-      <div className="absolute bottom-4 left-0 right-0 text-center">
-        <span className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs">
-          Posicione o QR no centro
-        </span>
-      </div>
+      {/* Overlay apenas no modo não-fullscreen */}
+      {!fullscreen && (
+        <>
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="border-2 border-primary rounded-lg w-48 h-48 opacity-80" />
+          </div>
+          <div className="absolute bottom-4 left-0 right-0 text-center">
+            <span className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs">
+              Posicione o QR no centro
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
