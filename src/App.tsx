@@ -20,7 +20,7 @@ import Instalar from "./pages/Instalar";
 import MotoristaLogin from "./pages/motorista/Login";
 import MotoristaDashboard from "./pages/motorista/Dashboard";
 import MotoristaBipar from "./pages/motorista/Bipar";
-
+import DesignSystem from "./pages/DesignSystem";
 const queryClient = new QueryClient();
 
 // Componente de rota protegida
@@ -85,6 +85,7 @@ const App = () => (
           <Route path="/bipagem" element={<ProtectedRoute><Bipagem /></ProtectedRoute>} />
           <Route path="/config-ml" element={<ProtectedRoute><ConfigML /></ProtectedRoute>} />
           <Route path="/ajuda" element={<ProtectedRoute><Ajuda /></ProtectedRoute>} />
+          <Route path="/design-system" element={<ProtectedRoute><DesignSystem /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
