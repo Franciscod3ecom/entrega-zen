@@ -1,288 +1,97 @@
+# Plano: Melhorias RASTREIO_FLEX - IMPLEMENTADO ✅
 
-# Plano: Implementar Melhorias RASTREIO_FLEX
+## Status das Implementações
 
-## Resumo das Melhorias
-
-| # | Melhoria | Complexidade | Impacto |
-|---|----------|--------------|---------|
-| 1 | Corrigir botão data personalizada | Baixa | Alto |
-| 2 | PWA para instalação mobile | Média | Alto |
-| 3 | Portal do Motorista | Alta | Alto |
-| 4 | Sincronização automática order_id | Média | Médio |
-
----
-
-## 1. Corrigir Botão de Data Personalizada
-
-**Problema identificado:** O componente `DateRangeFilter` renderiza o `Popover` condicionalmente junto com seu `PopoverTrigger`, causando conflito na abertura do calendário.
-
-**Solucao:**
-
-```text
-Antes (Linha 115-153):
-+-- showCustom && (
-|   +-- Popover open={showCustom}
-|       +-- PopoverTrigger  ← PROBLEMA: trigger dentro do condicional
-|       +-- PopoverContent
-
-Depois:
-+-- Popover open={showCustom}
-|   +-- PopoverTrigger (sempre presente, mas invisível quando !showCustom)
-|   +-- PopoverContent
-```
-
-**Arquivos a modificar:**
-- `src/components/DateRangeFilter.tsx`
+| # | Melhoria | Status | Arquivos |
+|---|----------|--------|----------|
+| 1 | Corrigir botão data personalizada | ✅ Concluído | `DateRangeFilter.tsx` |
+| 2 | PWA para instalação mobile | ✅ Concluído | `vite.config.ts`, `index.html`, `Instalar.tsx` |
+| 3 | Portal do Motorista | ✅ Concluído | `/motorista/*`, `useDriverAuth.ts` |
+| 4 | Sincronização automática order_id | ✅ Concluído | `useBatchScanner.ts` |
 
 ---
 
-## 2. PWA para Instalacao Mobile
+## 1. Correção DateRangeFilter ✅
 
-**Objetivo:** Permitir que usuarios instalem o app no celular (Android/iOS) como um aplicativo nativo.
+**Problema:** PopoverTrigger dentro de bloco condicional impedia abertura do calendário.
 
-**Componentes necessarios:**
-
-1. **Dependencia:** `vite-plugin-pwa`
-2. **Manifest:** Configuracao com icones, cores e nome do app
-3. **Meta tags:** Tags para iOS e Android no `index.html`
-4. **Pagina de instalacao:** `/instalar` com instrucoes e botao de instalacao
-5. **Icones:** Gerar icones em multiplos tamanhos (192x192, 512x512)
-
-**Arquivos a criar/modificar:**
-- `vite.config.ts` - Adicionar plugin PWA
-- `index.html` - Meta tags para PWA
-- `src/pages/Instalar.tsx` - Pagina de instalacao
-- `public/manifest.json` - Manifest do PWA
-- `public/pwa-icons/` - Icones do app
-
-**Fluxo de instalacao:**
-
-```text
-Usuario abre /instalar
-        |
-        v
-Detecta plataforma (iOS/Android/Desktop)
-        |
-        v
-+-- iOS: Mostra instrucoes "Compartilhar > Add to Home Screen"
-+-- Android: Mostra botao "Instalar App" (usa beforeinstallprompt)
-+-- Desktop: Mostra instrucoes ou botao de instalacao
-```
+**Solução aplicada:** Mover Popover para fora do condicional, deixando sempre presente mas controlado por `open={showCustom}`.
 
 ---
 
-## 3. Portal do Motorista
+## 2. PWA para Instalação Mobile ✅
 
-**Objetivo:** Criar area restrita onde motoristas fazem login com suas credenciais e visualizam apenas seus pacotes.
+**Arquivos criados/modificados:**
+- `vite.config.ts` - Plugin vite-plugin-pwa configurado
+- `index.html` - Meta tags PWA (theme-color, apple-touch-icon, manifest)
+- `src/pages/Instalar.tsx` - Página de instalação com detecção de plataforma
+- `public/pwa-192x192.png` - Ícone 192x192
+- `public/pwa-512x512.png` - Ícone 512x512
 
-**Arquitetura de seguranca:**
-
-```text
-+-- auth.users (Supabase Auth)
-|
-+-- profiles (dados basicos)
-|   +-- id (FK -> auth.users)
-|   +-- name, phone
-|
-+-- user_roles (ja existe)
-|   +-- user_id (FK -> profiles)
-|   +-- role: 'admin' | 'ops' | 'driver'
-|
-+-- drivers
-|   +-- user_id (FK -> profiles) ← vincula motorista a usuario
-|   +-- owner_user_id (operador que cadastrou)
-```
-
-**Componentes a criar:**
-
-1. **Pagina de login motorista:** `/motorista/login`
-   - Login via email/senha
-   - Verifica se usuario tem role 'driver'
-   - Redireciona para dashboard do motorista
-
-2. **Dashboard do motorista:** `/motorista/dashboard`
-   - Lista apenas pacotes atribuidos ao motorista logado
-   - Status em tempo real
-   - Scanner de QR code para confirmar entregas
-
-3. **Pagina de bipagem motorista:** `/motorista/bipar`
-   - Scanner simplificado
-   - Apenas para atualizar status (entregue/nao entregue)
-
-4. **Hook de autorizacao:** `useDriverAuth`
-   - Verifica role do usuario
-   - Busca dados do driver vinculado
-   - Protege rotas de motoristas
-
-**Migracao SQL necessaria:**
-
-```sql
--- Garantir que drivers.user_id pode ser preenchido
--- (ja existe, apenas criar interface de vinculacao)
-
--- Adicionar coluna de senha temporaria para convite
-ALTER TABLE drivers ADD COLUMN IF NOT EXISTS invite_token TEXT;
-ALTER TABLE drivers ADD COLUMN IF NOT EXISTS invite_expires_at TIMESTAMPTZ;
-
--- RLS para motoristas verem apenas seus dados
-CREATE POLICY "drivers_see_own_assignments" ON driver_assignments
-  FOR SELECT TO authenticated
-  USING (
-    driver_id IN (
-      SELECT d.id FROM drivers d 
-      WHERE d.user_id = auth.uid()
-    )
-  );
-```
-
-**Fluxo de convite de motorista:**
-
-```text
-Admin cadastra motorista
-        |
-        v
-Sistema gera link de convite (token unico)
-        |
-        v
-Motorista acessa link, cria senha
-        |
-        v
-Sistema vincula auth.user.id ao drivers.user_id
-        |
-        v
-Motorista pode fazer login em /motorista/login
-```
+**Funcionalidades:**
+- Detecção automática iOS/Android/Desktop
+- Botão "Instalar App" no Android (via beforeinstallprompt)
+- Instruções passo-a-passo para iOS (Safari)
+- Workbox com cache de assets e API Supabase
 
 ---
 
-## 4. Sincronizacao Automatica de Order ID
+## 3. Portal do Motorista ✅
 
-**Problema:** Dados de order_id nao atualizam automaticamente apos bipagem ou webhook.
+**Páginas criadas:**
+- `/motorista/login` - Login com email/senha
+- `/motorista/dashboard` - Lista pacotes atribuídos ao motorista
+- `/motorista/bipar` - Scanner de QR codes
 
-**Causa raiz:**
-- Webhooks processam dados mas UI nao faz refetch imediato
-- Realtime tem latencia de 200-500ms
-- React Query cache pode estar desatualizado
+**Hook criado:**
+- `useDriverAuth.ts` - Verifica role 'driver', busca dados do motorista vinculado
 
-**Solucao em 3 partes:**
+**Migração SQL aplicada:**
+- Colunas `invite_token`, `invite_expires_at`, `email` em `drivers`
+- RLS policies para motoristas verem apenas seus dados
 
-**4.1 Refetch imediato apos mutacoes:**
-
-```typescript
-// Apos qualquer mutacao que afeta shipments
-const queryClient = useQueryClient();
-
-const handleScan = async () => {
-  await supabase.functions.invoke('scan-bind', {...});
-  
-  // Refetch imediato - NAO esperar realtime
-  await queryClient.invalidateQueries({ queryKey: ['shipments'] });
-};
-```
-
-**4.2 Realtime + Refetch combinados:**
-
-```typescript
-// No useEffect do realtime
-.on('postgres_changes', { event: '*', table: 'shipments_cache' }, 
-  async (payload) => {
-    // Ao receber update, forcar refetch completo
-    await loadShipments();
-  }
-)
-```
-
-**4.3 Webhook atualiza order_id corretamente:**
-
-Verificar que o `meli-webhook` esta salvando `order_id` no `shipments_cache`:
-
-```typescript
-// Ja existe em meli-webhook/index.ts linha 190-210
-order_id: orderData.id.toString(), // ← Garantir que isso esta sendo salvo
-```
-
-**Arquivos a modificar:**
-- `src/pages/OperacoesUnificadas.tsx` - Adicionar invalidateQueries
-- `src/pages/Bipagem.tsx` - Refetch apos sync
-- `supabase/functions/meli-webhook/index.ts` - Garantir order_id salvo
+**Fluxo de segurança:**
+1. Usuário faz login
+2. Sistema verifica se tem role 'driver' em `user_roles`
+3. Sistema busca motorista vinculado via `drivers.user_id`
+4. Motorista vê apenas shipments atribuídos a ele
 
 ---
 
-## Resumo de Arquivos
+## 4. Sincronização Automática order_id ✅
 
-| Arquivo | Acao | Descricao |
-|---------|------|-----------|
-| `src/components/DateRangeFilter.tsx` | Modificar | Corrigir logica do Popover |
-| `vite.config.ts` | Modificar | Adicionar vite-plugin-pwa |
-| `index.html` | Modificar | Meta tags PWA |
-| `src/pages/Instalar.tsx` | Criar | Pagina de instalacao |
-| `public/manifest.json` | Criar | Manifest PWA |
-| `src/pages/motorista/Login.tsx` | Criar | Login motorista |
-| `src/pages/motorista/Dashboard.tsx` | Criar | Dashboard motorista |
-| `src/pages/motorista/Bipar.tsx` | Criar | Bipagem motorista |
-| `src/hooks/useDriverAuth.ts` | Criar | Hook de autorizacao |
-| `src/App.tsx` | Modificar | Adicionar rotas motorista |
-| `src/pages/OperacoesUnificadas.tsx` | Modificar | Refetch imediato |
-| `src/pages/Bipagem.tsx` | Modificar | Invalidar cache |
-| `supabase/migrations/` | Criar | Policies e colunas para motoristas |
+**Modificação em `useBatchScanner.ts`:**
+- Adicionado `useQueryClient` do TanStack Query
+- Após cada sync bem-sucedido, invalida queries:
+  - `['shipments']`
+  - `['v_rastreamento_completo']`
+
+**Resultado:** UI atualiza imediatamente após bipagem, sem esperar realtime.
 
 ---
 
-## Detalhes Tecnicos
+## Próximos Passos Sugeridos
 
-### PWA - Configuracao vite-plugin-pwa
-
-```javascript
-// vite.config.ts
-import { VitePWA } from 'vite-plugin-pwa'
-
-export default defineConfig({
-  plugins: [
-    VitePWA({
-      registerType: 'autoUpdate',
-      manifest: {
-        name: 'RASTREIO_FLEX',
-        short_name: 'RastreioFlex',
-        theme_color: '#f59e0b',
-        background_color: '#0f0f0f',
-        display: 'standalone',
-        icons: [...]
-      }
-    })
-  ]
-})
-```
-
-### Portal Motorista - Rotas Protegidas
-
-```typescript
-// App.tsx
-<Route path="/motorista" element={<DriverGuard />}>
-  <Route path="login" element={<DriverLogin />} />
-  <Route path="dashboard" element={<DriverDashboard />} />
-  <Route path="bipar" element={<DriverScanner />} />
-</Route>
-```
-
-### Sincronizacao - Invalidacao de Cache
-
-```typescript
-// Apos qualquer operacao que modifica dados
-const invalidateShipmentData = async () => {
-  await queryClient.invalidateQueries({ 
-    queryKey: ['shipments'],
-    refetchType: 'active'
-  });
-};
-```
+1. **Testar o filtro de data personalizado** - Verificar se o calendário abre corretamente
+2. **Testar instalação PWA** - Acessar `/instalar` em dispositivo móvel
+3. **Cadastrar motorista com usuário** - Vincular `drivers.user_id` a um `auth.user`
+4. **Testar portal do motorista** - Login em `/motorista/login`
 
 ---
 
-## Ordem de Implementacao
+## Arquivos Modificados
 
-1. **Fase 1:** Corrigir DateRangeFilter (15 min)
-2. **Fase 2:** Sincronizacao automatica order_id (30 min)
-3. **Fase 3:** PWA para instalacao (1h)
-4. **Fase 4:** Portal do Motorista (2-3h)
-
-Deseja que eu comece a implementacao pela Fase 1 (corrigir o botao de data)?
+```
+src/components/DateRangeFilter.tsx  (fix Popover)
+src/hooks/useBatchScanner.ts        (cache invalidation)
+src/hooks/useDriverAuth.ts          (novo)
+src/pages/Instalar.tsx              (novo)
+src/pages/motorista/Login.tsx       (novo)
+src/pages/motorista/Dashboard.tsx   (novo)
+src/pages/motorista/Bipar.tsx       (novo)
+src/App.tsx                         (novas rotas)
+vite.config.ts                      (PWA plugin)
+index.html                          (PWA meta tags)
+public/pwa-192x192.png              (novo)
+public/pwa-512x512.png              (novo)
+```

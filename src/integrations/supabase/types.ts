@@ -254,7 +254,10 @@ export type Database = {
           active: boolean
           carrier_id: string | null
           created_at: string
+          email: string | null
           id: string
+          invite_expires_at: string | null
+          invite_token: string | null
           name: string
           owner_user_id: string
           phone: string
@@ -265,7 +268,10 @@ export type Database = {
           active?: boolean
           carrier_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
           name: string
           owner_user_id: string
           phone: string
@@ -276,7 +282,10 @@ export type Database = {
           active?: boolean
           carrier_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          invite_expires_at?: string | null
+          invite_token?: string | null
           name?: string
           owner_user_id?: string
           phone?: string
