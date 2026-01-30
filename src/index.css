@@ -535,4 +535,51 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: hsl(45 100% 50% / 0.5);
   }
+
+  /* iOS Typography Scale */
+  .text-display-lg { font-size: 34px; line-height: 41px; letter-spacing: -0.4px; font-weight: 700; }
+  .text-display-md { font-size: 28px; line-height: 34px; letter-spacing: -0.4px; font-weight: 700; }
+  .text-title-lg { font-size: 22px; line-height: 28px; letter-spacing: -0.4px; font-weight: 700; }
+  .text-title-md { font-size: 20px; line-height: 25px; letter-spacing: -0.4px; font-weight: 600; }
+  .text-title-sm { font-size: 17px; line-height: 22px; letter-spacing: -0.4px; font-weight: 600; }
+  .text-headline { font-size: 17px; line-height: 22px; letter-spacing: -0.4px; font-weight: 600; }
+  .text-body { font-size: 17px; line-height: 22px; letter-spacing: -0.4px; font-weight: 400; }
+  .text-callout { font-size: 16px; line-height: 21px; letter-spacing: -0.3px; font-weight: 400; }
+  .text-subhead { font-size: 15px; line-height: 20px; letter-spacing: -0.2px; font-weight: 400; }
+  .text-footnote { font-size: 13px; line-height: 18px; letter-spacing: -0.1px; font-weight: 400; }
+  .text-caption1 { font-size: 12px; line-height: 16px; font-weight: 400; }
+  .text-caption2 { font-size: 11px; line-height: 13px; font-weight: 400; }
+
+  /* iOS Border Radius */
+  .rounded-ios-sm { border-radius: 8px; }
+  .rounded-ios-md { border-radius: 12px; }
+  .rounded-ios-lg { border-radius: 16px; }
+  .rounded-ios-xl { border-radius: 20px; }
+  .rounded-ios-full { border-radius: 9999px; }
+
+  /* iOS Spacing (4pt grid) */
+  .space-y-ios-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 8px; }
+  .space-y-ios-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
+  .space-y-ios-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 16px; }
+  .space-y-ios-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 20px; }
+  .space-y-ios-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 24px; }
+
+  .gap-ios-2 { gap: 8px; }
+  .gap-ios-3 { gap: 12px; }
+  .gap-ios-4 { gap: 16px; }
+  .gap-ios-5 { gap: 20px; }
+  .gap-ios-6 { gap: 24px; }
+
+  .p-ios-2 { padding: 8px; }
+  .p-ios-3 { padding: 12px; }
+  .p-ios-4 { padding: 16px; }
+  .p-ios-5 { padding: 20px; }
+  .p-ios-6 { padding: 24px; }
+
+  /* Scroll margin for anchor navigation */
+  .scroll-mt-24 { scroll-margin-top: 6rem; }
+
+  /* Text colors from design system */
+  .text-text-secondary { color: hsl(var(--text-secondary)); }
+  .text-text-tertiary { color: hsl(var(--text-tertiary)); }
 }

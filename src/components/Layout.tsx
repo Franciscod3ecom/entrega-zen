@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home, Download, Palette } from "lucide-react";
+import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home, Download, Palette, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { to: "/transportadoras", icon: TruckIcon, label: "Transportadoras" },
   { to: "/vincular", icon: Link2, label: "Vincular Venda", shortLabel: "Vincular" },
   { to: "/config-ml", icon: Settings, label: "Config ML", shortLabel: "Config" },
+  { to: "/ajuda", icon: HelpCircle, label: "Ajuda" },
   { to: "/design-system", icon: Palette, label: "Design System", shortLabel: "Design" },
 ];
 
@@ -61,7 +62,7 @@ export default function Layout({ children }: LayoutProps) {
           <Button
             variant={isActive(item.to) ? "gold" : "ghost"}
             className={cn(
-              "w-full justify-start gap-3 h-12 text-base",
+              "w-full justify-start gap-ios-3 h-12 text-body rounded-ios-md ios-pressed",
               isActive(item.to) && "shadow-primary"
             )}
           >
@@ -78,20 +79,20 @@ export default function Layout({ children }: LayoutProps) {
       {/* Header - Liquid Glass */}
       <header className="sticky top-0 z-40 w-full liquid-glass border-b border-border">
         <div className="container flex h-14 md:h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-ios-3">
             {/* Mobile menu */}
             <Sheet>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon" className="h-10 w-10">
+                <Button variant="ghost" size="icon" className="h-11 w-11 rounded-ios-md ios-pressed">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-4 pt-12 liquid-glass border-border">
+              <SheetContent side="left" className="w-72 p-ios-4 pt-12 liquid-glass border-border">
                 <NavLinks />
-                <div className="mt-8 pt-4 border-t border-border">
+                <div className="mt-8 pt-ios-4 border-t border-border">
                   <Button
                     variant="ghost"
-                    className="w-full justify-start gap-3 h-12 text-danger hover:text-danger hover:bg-danger/10"
+                    className="w-full justify-start gap-ios-3 h-12 text-danger hover:text-danger hover:bg-danger/10 rounded-ios-md ios-pressed"
                     onClick={handleLogout}
                   >
                     <LogOut className="h-5 w-5" />
@@ -103,10 +104,10 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Logo */}
             <Link to="/dashboard" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-primary shadow-gold">
+              <div className="flex h-9 w-9 items-center justify-center rounded-ios-md bg-gradient-primary shadow-gold">
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="text-lg font-bold hidden sm:block text-gold-gradient">RASTREIO_FLEX</span>
+              <span className="text-headline hidden sm:block text-gold-gradient">RASTREIO_FLEX</span>
             </Link>
           </div>
 
@@ -117,7 +118,7 @@ export default function Layout({ children }: LayoutProps) {
               variant="ghost" 
               size="icon" 
               onClick={handleLogout}
-              className="hidden md:flex h-10 w-10 hover:bg-danger/10 hover:text-danger"
+              className="hidden md:flex h-11 w-11 rounded-ios-md ios-pressed hover:bg-danger/10 hover:text-danger"
             >
               <LogOut className="h-5 w-5" />
             </Button>
@@ -125,9 +126,9 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <div className="container flex px-4 py-4 md:py-6">
+      <div className="container flex px-4 py-ios-4 md:py-ios-6">
         {/* Sidebar Desktop */}
-        <aside className="hidden w-56 flex-shrink-0 pr-6 md:block lg:w-64">
+        <aside className="hidden w-56 flex-shrink-0 pr-ios-6 md:block lg:w-64">
           <div className="sticky top-20">
             <NavLinks />
           </div>
@@ -145,17 +146,17 @@ export default function Layout({ children }: LayoutProps) {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors touch-feedback",
+                "flex flex-col items-center justify-center gap-0.5 flex-1 h-full ios-transition-fast ios-pressed",
                 isActive(item.to) 
                   ? "text-primary" 
-                  : "text-muted-foreground"
+                  : "text-text-tertiary"
               )}
             >
               <item.icon className={cn(
-                "h-5 w-5 transition-transform",
+                "h-5 w-5 ios-transition-fast",
                 isActive(item.to) && "scale-110"
               )} />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-caption2 font-medium">{item.label}</span>
             </Link>
           ))}
         </div>

@@ -62,10 +62,10 @@ export default function MotoristaLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="p-4">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" asChild className="h-11 w-11 rounded-ios-md ios-pressed">
           <Link to="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -77,58 +77,58 @@ export default function MotoristaLogin() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <div className="w-20 h-20 rounded-ios-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mx-auto mb-4 shadow-gold">
               <Truck className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-2xl font-bold">Portal do Motorista</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-title-lg">Portal do Motorista</h1>
+            <p className="text-callout text-text-secondary mt-1">
               RASTREIO_FLEX
             </p>
           </div>
 
-          <Card className="border-0 shadow-xl">
+          <Card variant="ios" className="ios-card-shadow">
             <CardHeader className="text-center pb-2">
-              <CardTitle className="text-xl">Entrar</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-title-sm">Entrar</CardTitle>
+              <CardDescription className="text-callout text-text-secondary">
                 Acesse com suas credenciais de motorista
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-ios-4">
                 {error && (
-                  <Alert variant="destructive">
+                  <Alert variant="destructive" className="rounded-ios-md">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-callout">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
                     <Input
                       id="email"
                       type="email"
                       placeholder="seu@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10 h-12 rounded-xl"
+                      className="pl-10 h-12 rounded-ios-md"
                       disabled={isSubmitting}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <Label htmlFor="password" className="text-callout">Senha</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
                     <Input
                       id="password"
                       type="password"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 h-12 rounded-xl"
+                      className="pl-10 h-12 rounded-ios-md"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -136,7 +136,9 @@ export default function MotoristaLogin() {
 
                 <Button 
                   type="submit" 
-                  className="w-full h-12 rounded-xl text-base font-semibold"
+                  variant="ios-primary"
+                  size="ios-default"
+                  className="w-full ios-pressed"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -153,7 +155,7 @@ export default function MotoristaLogin() {
           </Card>
 
           {/* Help text */}
-          <p className="text-center text-sm text-muted-foreground mt-6">
+          <p className="text-center text-footnote text-text-tertiary mt-6">
             Suas credenciais foram fornecidas pelo administrador.<br />
             Em caso de dúvidas, entre em contato com seu gestor.
           </p>

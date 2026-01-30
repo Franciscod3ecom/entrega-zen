@@ -284,53 +284,53 @@ export default function Dashboard() {
     <>
       <Layout>
         <div className="space-y-4 md:space-y-6">
-          {/* Header */}
-          <div className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Visão geral das entregas Mercado Envios Flex
-            </p>
-          </div>
+        {/* Header */}
+        <div className="space-y-1">
+          <h1 className="text-title-lg md:text-display-md">Dashboard</h1>
+          <p className="text-callout text-text-secondary">
+            Visão geral das entregas Mercado Envios Flex
+          </p>
+        </div>
 
-          {/* Stats Grid - Mobile optimized */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-            {statCards.map((stat, index) => (
-              <Card key={index} className="border-0 shadow-md rounded-2xl overflow-hidden animate-scale-in" style={{ animationDelay: `${index * 50}ms` }}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className={`${stat.bgColor} rounded-xl p-2`}>
-                      <stat.icon className={`h-4 w-4 md:h-5 md:w-5 ${stat.color}`} />
-                    </div>
+        {/* Stats Grid - Mobile optimized */}
+        <div className="grid grid-cols-2 gap-ios-3 md:grid-cols-4 md:gap-ios-4">
+          {statCards.map((stat, index) => (
+            <Card key={index} variant="ios" className="ios-card-shadow animate-scale-in" style={{ animationDelay: `${index * 50}ms` }}>
+              <CardContent className="p-ios-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`${stat.bgColor} rounded-ios-md p-2`}>
+                    <stat.icon className={`h-4 w-4 md:h-5 md:w-5 ${stat.color}`} />
                   </div>
-                  <div className="text-2xl md:text-3xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {stat.title}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* System Health Card */}
-          <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Activity className="h-4 w-4 text-primary" />
                 </div>
-                Saúde do Sistema
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {/* Última Sincronização */}
-                <div className="p-3 rounded-xl bg-muted/50">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Última Sync</span>
-                  </div>
-                  <div className="text-sm font-medium">
-                    {stats.lastSync 
+                <div className="text-display-md font-bold">{stat.value}</div>
+                <p className="text-footnote text-text-tertiary mt-0.5">
+                  {stat.title}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* System Health Card */}
+        <Card variant="ios" className="ios-card-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-ios-2 text-title-sm">
+              <div className="h-8 w-8 rounded-ios-md bg-primary/10 flex items-center justify-center">
+                <Activity className="h-4 w-4 text-primary" />
+              </div>
+              Saúde do Sistema
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-ios-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-ios-3">
+              {/* Última Sincronização */}
+              <div className="p-ios-3 rounded-ios-md bg-muted/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="h-4 w-4 text-text-tertiary" />
+                  <span className="text-caption1 text-text-tertiary">Última Sync</span>
+                </div>
+                <div className="text-callout font-medium">
+                  {stats.lastSync
                       ? formatDistanceToNow(new Date(stats.lastSync), { addSuffix: true, locale: ptBR })
                       : "Nunca"
                     }
@@ -389,34 +389,34 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Alerts & Pending - Mobile cards */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Alerts Card */}
-            <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="h-8 w-8 rounded-xl bg-danger/10 flex items-center justify-center">
-                    <AlertCircle className="h-4 w-4 text-danger" />
-                  </div>
-                  Alertas
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="text-center p-3 rounded-xl bg-danger/5">
-                    <div className="text-2xl font-bold text-danger">{stats.alertsPending}</div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Pendentes</p>
-                  </div>
-                  <div className="text-center p-3 rounded-xl bg-secondary/5">
-                    <div className="text-2xl font-bold text-secondary">{stats.alertsInvestigating}</div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Investigando</p>
-                  </div>
-                  <div className="text-center p-3 rounded-xl bg-success/5">
-                    <div className="text-2xl font-bold text-success">{stats.alertsResolved}</div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Resolvidos</p>
-                  </div>
+        {/* Alerts & Pending - Mobile cards */}
+        <div className="grid gap-ios-4 md:grid-cols-2">
+          {/* Alerts Card */}
+          <Card variant="ios" className="ios-card-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-ios-2 text-title-sm">
+                <div className="h-8 w-8 rounded-ios-md bg-danger/10 flex items-center justify-center">
+                  <AlertCircle className="h-4 w-4 text-danger" />
                 </div>
-                <Button asChild className="w-full h-11 rounded-xl">
+                Alertas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-ios-4">
+              <div className="grid grid-cols-3 gap-ios-3">
+                <div className="text-center p-ios-3 rounded-ios-md bg-danger/5">
+                  <div className="text-title-lg font-bold text-danger">{stats.alertsPending}</div>
+                  <p className="text-caption2 text-text-tertiary mt-0.5">Pendentes</p>
+                </div>
+                <div className="text-center p-ios-3 rounded-ios-md bg-secondary/5">
+                  <div className="text-title-lg font-bold text-secondary">{stats.alertsInvestigating}</div>
+                  <p className="text-caption2 text-text-tertiary mt-0.5">Investigando</p>
+                </div>
+                <div className="text-center p-ios-3 rounded-ios-md bg-success/5">
+                  <div className="text-title-lg font-bold text-success">{stats.alertsResolved}</div>
+                  <p className="text-caption2 text-text-tertiary mt-0.5">Resolvidos</p>
+                </div>
+              </div>
+              <Button asChild variant="ios-primary" size="ios-default" className="w-full ios-pressed">
                   <Link to="/operacoes">
                     Ver Operações
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -425,42 +425,42 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Pending Card */}
-            <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Clock className="h-4 w-4 text-primary" />
-                  </div>
-                  Pendências
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+          {/* Pending Card */}
+          <Card variant="ios" className="ios-card-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-ios-2 text-title-sm">
+                <div className="h-8 w-8 rounded-ios-md bg-primary/10 flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-primary" />
+                </div>
+                Pendências
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
                 {pendenciasData ? (
-                  <div className="space-y-4">
-                    <div className="flex items-baseline gap-2">
-                      <div className="text-4xl font-bold">{pendenciasData.total}</div>
-                      <p className="text-sm text-muted-foreground">pacotes com motoristas</p>
-                    </div>
-                    
-                    {pendenciasData.porMotorista.length > 0 && (
-                      <div className="space-y-2 pt-3 border-t">
-                        {(pendenciasData.porMotorista as any[]).slice(0, 3).map((item: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between py-1">
-                            <span className="text-sm truncate">{item.driver_name}</span>
-                            <Badge variant="secondary" className="rounded-lg">{item.count}</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <Button asChild variant="outline" className="w-full h-11 rounded-xl">
-                      <Link to="/rastreamento?tab=pendentes">
-                        Ver Detalhes
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Link>
-                    </Button>
+                <div className="space-y-ios-4">
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-display-lg font-bold">{pendenciasData.total}</div>
+                    <p className="text-callout text-text-secondary">pacotes com motoristas</p>
                   </div>
+                  
+                  {pendenciasData.porMotorista.length > 0 && (
+                    <div className="space-y-2 pt-ios-3 border-t border-border-subtle">
+                      {(pendenciasData.porMotorista as any[]).slice(0, 3).map((item: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between py-1">
+                          <span className="text-callout truncate">{item.driver_name}</span>
+                          <Badge variant="secondary" className="rounded-ios-full">{item.count}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <Button asChild variant="outline" size="ios-default" className="w-full ios-pressed rounded-ios-md">
+                    <Link to="/rastreamento?tab=pendentes">
+                      Ver Detalhes
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
+                  </Button>
+                </div>
                 ) : (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -471,20 +471,20 @@ export default function Dashboard() {
           </div>
 
           {/* Maintenance Actions - FASE 2: Consolidado em 2 botões */}
-          <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
+          <Card variant="ios" className="ios-card-shadow">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
+              <CardTitle className="flex items-center gap-ios-2 text-title-sm">
+                <div className="h-8 w-8 rounded-ios-md bg-primary/10 flex items-center justify-center">
                   <RefreshCw className="h-4 w-4 text-primary" />
                 </div>
                 Manutenção
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-callout text-text-secondary mt-1">
                 Ações rápidas para manter o sistema atualizado
               </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-ios-3">
                 <Button
                   onClick={async () => {
                     setIsSyncingAll(true);
@@ -502,16 +502,16 @@ export default function Dashboard() {
                     }
                   }}
                   disabled={isSyncingAll}
-                  variant="default"
-                  className="h-auto py-5 flex-col gap-2 rounded-xl touch-feedback"
+                  variant="ios-primary"
+                  className="h-auto py-ios-5 flex-col gap-2 rounded-ios-lg ios-pressed"
                 >
                   {isSyncingAll ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
                     <RefreshCw className="h-6 w-6" />
                   )}
-                  <span className="text-sm font-medium">Sincronizar Tudo</span>
-                  <span className="text-[10px] text-muted-foreground">Importar + Atualizar</span>
+                  <span className="text-callout font-medium">Sincronizar Tudo</span>
+                  <span className="text-caption2 text-text-tertiary">Importar + Atualizar</span>
                 </Button>
 
                 <Button
@@ -531,21 +531,21 @@ export default function Dashboard() {
                     }
                   }}
                   disabled={isCheckingProblems}
-                  variant="outline"
-                  className="h-auto py-5 flex-col gap-2 rounded-xl touch-feedback"
+                  variant="ios-secondary"
+                  className="h-auto py-ios-5 flex-col gap-2 rounded-ios-lg ios-pressed"
                 >
                   {isCheckingProblems ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
                     <CheckCircle className="h-6 w-6 text-success" />
                   )}
-                  <span className="text-sm font-medium">Verificar e Corrigir</span>
-                  <span className="text-[10px] text-muted-foreground">Detectar + Resolver</span>
+                  <span className="text-callout font-medium">Verificar e Corrigir</span>
+                  <span className="text-caption2 text-text-tertiary">Detectar + Resolver</span>
                 </Button>
               </div>
               
-              <div className="mt-4 p-3 bg-muted/50 rounded-xl">
-                <p className="text-xs text-muted-foreground">
+              <div className="mt-ios-4 p-ios-3 bg-muted/50 rounded-ios-md">
+                <p className="text-footnote text-text-secondary">
                   💡 <strong>Sincronizar Tudo:</strong> Importa novos pedidos dos últimos 7 dias e atualiza status.<br/>
                   <strong>Verificar e Corrigir:</strong> Detecta problemas e resolve inconsistências automaticamente.
                 </p>
