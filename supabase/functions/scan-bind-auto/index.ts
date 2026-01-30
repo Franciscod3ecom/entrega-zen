@@ -19,7 +19,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Extrair owner_user_id do JWT
+    // Extrair usuário do JWT
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Não autenticado');
@@ -32,7 +32,7 @@ serve(async (req) => {
       throw new Error('Token inválido');
     }
 
-    const owner_user_id = user.id;
+    const loggedUserId = user.id;
     
     // Validação de entrada com Zod
     const scanBindAutoSchema = z.object({
@@ -53,13 +53,65 @@ serve(async (req) => {
 
     const { driver_id, shipment_id } = validationResult.data;
 
-    console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (owner: ${owner_user_id})`);
+    // ============================================
+    // NOVA LÓGICA: Descobrir operation_owner_user_id
+    // Se for motorista, usa o owner_user_id do cadastro do motorista
+    // Se não for motorista, usa o próprio user.id
+    // ============================================
+    
+    let operation_owner_user_id = loggedUserId;
+    
+    // Checar se o usuário logado tem role 'driver'
+    const { data: driverRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', loggedUserId)
+      .eq('role', 'driver')
+      .maybeSingle();
+    
+    const isDriverUser = !!driverRole;
+    
+    if (isDriverUser) {
+      console.log(`[scan-bind-auto] Usuário ${loggedUserId} é motorista, buscando owner da operação...`);
+      
+      // Buscar o registro do motorista pelo driver_id enviado no request
+      const { data: driverRecord, error: driverError } = await supabase
+        .from('drivers')
+        .select('id, user_id, owner_user_id, active')
+        .eq('id', driver_id)
+        .maybeSingle();
+      
+      if (driverError) {
+        console.error('[scan-bind-auto] Erro ao buscar motorista:', driverError);
+        throw new Error('Erro ao validar motorista');
+      }
+      
+      if (!driverRecord) {
+        throw new Error('Motorista não encontrado');
+      }
+      
+      // Validar segurança: o driver_id deve pertencer ao usuário logado
+      if (driverRecord.user_id !== loggedUserId) {
+        console.error(`[scan-bind-auto] SEGURANÇA: Usuário ${loggedUserId} tentou usar driver_id ${driver_id} que pertence a ${driverRecord.user_id}`);
+        throw new Error('Não autorizado: motorista não pertence a este usuário');
+      }
+      
+      if (!driverRecord.active) {
+        throw new Error('Motorista inativo');
+      }
+      
+      // Usar o owner_user_id da operação (admin que criou o motorista)
+      operation_owner_user_id = driverRecord.owner_user_id;
+      console.log(`[scan-bind-auto] ✓ Motorista validado. Usando owner da operação: ${operation_owner_user_id}`);
+    }
 
-    // 1. Buscar todas as contas ML ativas do usuário
+    console.log(`[scan-bind-auto] Iniciando busca multi-conta para shipment: ${shipment_id} (operation_owner: ${operation_owner_user_id}, logged_user: ${loggedUserId}, is_driver: ${isDriverUser})`);
+
+    // 1. Buscar todas as contas ML ativas do DONO DA OPERAÇÃO (não do usuário logado)
     const { data: mlAccounts, error: accountsError } = await supabase
       .from('ml_accounts')
       .select('id, ml_user_id, nickname, owner_user_id')
-      .eq('owner_user_id', owner_user_id);
+      .eq('owner_user_id', operation_owner_user_id);
 
     if (accountsError) throw accountsError;
 
@@ -99,7 +151,7 @@ serve(async (req) => {
 
     // 3. Se não encontrou em nenhuma conta
     if (!shipmentData || !foundAccount) {
-      throw new Error(`Este código (${shipment_id}) não foi encontrado em nenhuma das suas contas do Mercado Livre. Verifique a etiqueta.`);
+      throw new Error(`Este código (${shipment_id}) não foi encontrado em nenhuma das contas do Mercado Livre. Verifique a etiqueta.`);
     }
 
     // 4. Processar shipment encontrado (mesma lógica do scan-bind)
@@ -116,10 +168,10 @@ serve(async (req) => {
       .eq('shipment_id', String(shipment_id))
       .maybeSingle();
 
-    // 6. Fazer MERGE inteligente
+    // 6. Fazer MERGE inteligente - USAR operation_owner_user_id
     const mergedData = {
       shipment_id: String(shipment_id),
-      owner_user_id: owner_user_id,
+      owner_user_id: operation_owner_user_id,  // ← CORRIGIDO: usa o owner da operação
       ml_account_id: foundAccount.id,
       
       // ✅ Preservar dados existentes se API retornar null
@@ -142,6 +194,7 @@ serve(async (req) => {
     console.log('[scan-bind-auto] Merge inteligente:', {
       preservou_order: mergedData.order_id === currentCache?.order_id,
       preservou_tracking: mergedData.tracking_number === currentCache?.tracking_number,
+      operation_owner_user_id,
     });
 
     // 7. Upsert em shipments_cache com dados mesclados
@@ -158,12 +211,13 @@ serve(async (req) => {
 
     console.log(`[scan-bind-auto] ✓ Cache atualizado`);
 
-    // 8. FASE 5.1: Verificar duplicatas - impedir que outro motorista tenha o mesmo pacote
+    // 8. Verificar duplicatas - impedir que outro motorista tenha o mesmo pacote
+    // USAR operation_owner_user_id para buscar assignments
     const { data: anyAssignment } = await supabase
       .from('driver_assignments')
       .select('*, driver:drivers(name, phone)')
       .eq('shipment_id', String(shipment_id))
-      .eq('owner_user_id', owner_user_id)
+      .eq('owner_user_id', operation_owner_user_id)  // ← CORRIGIDO
       .is('returned_at', null)  // Apenas assignments ativos
       .maybeSingle();
 
@@ -203,36 +257,36 @@ serve(async (req) => {
       if (updateError) throw updateError;
       console.log(`[scan-bind-auto] ✓ Assignment atualizado (mesmo motorista): ${anyAssignment.id}`);
     } else {
-      // ✅ Nenhum assignment ativo - criar novo
+      // ✅ Nenhum assignment ativo - criar novo COM operation_owner_user_id
       const { error: insertError } = await supabase
         .from('driver_assignments')
         .insert({
           driver_id,
           shipment_id: String(shipment_id),
-          owner_user_id: owner_user_id,
+          owner_user_id: operation_owner_user_id,  // ← CORRIGIDO
           ml_account_id: foundAccount.id,
           assigned_at: now,
           scanned_at: now,
         });
 
       if (insertError) throw insertError;
-      console.log(`[scan-bind-auto] ✓ Novo assignment criado`);
+      console.log(`[scan-bind-auto] ✓ Novo assignment criado com owner ${operation_owner_user_id}`);
     }
 
-    // 7. Registrar em scan_logs
+    // 9. Registrar em scan_logs COM operation_owner_user_id
     await supabase
       .from('scan_logs')
       .insert({
         driver_id,
         shipment_id: String(shipment_id),
-        owner_user_id: owner_user_id,
+        owner_user_id: operation_owner_user_id,  // ← CORRIGIDO
         ml_account_id: foundAccount.id,
         scanned_code: String(shipment_id),
         resolved_from: 'qr_auto_multi',
         scanned_at: now,
       });
 
-    // 8. Retornar sucesso com dados completos
+    // 10. Retornar sucesso com dados completos
     return new Response(
       JSON.stringify({ 
         success: true,
