@@ -17,7 +17,9 @@ serve(async (req) => {
   }
 
   try {
-    const { ml_user_id } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const ml_user_id = body.ml_user_id;
+    const days_back = Math.min(body.days_back || 7, 30); // FASE 3: Limite de 7 dias (máx 30)
 
     if (!ml_user_id) {
       return new Response(
@@ -39,20 +41,26 @@ serve(async (req) => {
       throw new Error('Conta ML não encontrada');
     }
 
-    console.log('Iniciando sincronização para ML user:', ml_user_id);
+    console.log(`Iniciando sincronização para ML user: ${ml_user_id} (últimos ${days_back} dias)`);
+    
+    // FASE 3: Calcular data limite
+    const now = new Date();
+    const dateFrom = new Date(now.getTime() - days_back * 24 * 60 * 60 * 1000);
+    const dateFromStr = dateFrom.toISOString().split('T')[0];
 
     let imported = 0;
     let errors = 0;
     let offset = 0;
     const limit = 50;
 
-    // Buscar pedidos em lotes
+    // Buscar pedidos em lotes - FASE 3: Com filtro de data
     while (true) {
       try {
-        // Buscar pedidos pagos com envio
+        // Buscar pedidos pagos com envio (limitados por data)
         const ordersResponse = await mlGet('/orders/search', {
           seller: ml_user_id.toString(),
           'order.status': 'paid',
+          'order.date_created.from': `${dateFromStr}T00:00:00.000-03:00`,
           offset: offset.toString(),
           limit: limit.toString(),
         }, ml_user_id);
@@ -93,14 +101,27 @@ serve(async (req) => {
               }
 
               // Enriquecer com dados do comprador
-              shipmentData.buyer_info = {
+              const buyerInfo = {
                 name: `${orderData.buyer?.first_name || ''} ${orderData.buyer?.last_name || ''}`.trim(),
                 nickname: orderData.buyer?.nickname || null,
                 city: orderData.shipping?.receiver_address?.city?.name || null,
                 state: orderData.shipping?.receiver_address?.state?.name || null,
               };
+              
+              // FASE 1: Criar raw_data slim (sem campos pesados)
+              const slimRawData = {
+                id: shipmentData.id,
+                status: shipmentData.status,
+                substatus: shipmentData.substatus,
+                logistic: {
+                  type: shipmentData.logistic?.type,
+                  mode: shipmentData.logistic?.mode,
+                },
+                buyer_info: buyerInfo,
+                tracking_number: shipmentData.tracking_number,
+              };
 
-              // Salvar no cache
+              // Salvar no cache com colunas dedicadas
               const { error: cacheError } = await supabase
                 .from('shipments_cache')
                 .upsert({
@@ -113,7 +134,11 @@ serve(async (req) => {
                   last_ml_update: new Date().toISOString(),
                   owner_user_id: account.owner_user_id,
                   ml_account_id: account.id,
-                  raw_data: shipmentData,
+                  // FASE 1: Novas colunas dedicadas
+                  cliente_nome: buyerInfo.name || null,
+                  cidade: buyerInfo.city || null,
+                  estado: buyerInfo.state || null,
+                  raw_data: slimRawData,
                 }, {
                   onConflict: 'shipment_id,owner_user_id',
                 });

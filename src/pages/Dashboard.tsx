@@ -470,7 +470,7 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Maintenance Actions */}
+          {/* Maintenance Actions - FASE 2: Consolidado em 2 botões */}
           <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -480,85 +480,74 @@ export default function Dashboard() {
                 Manutenção
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Ações para manter os dados atualizados
+                Ações rápidas para manter o sistema atualizado
               </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3">
                 <Button
-                  onClick={handleSyncAllAccounts}
+                  onClick={async () => {
+                    setIsSyncingAll(true);
+                    try {
+                      toast.info('🔄 Sincronizando...');
+                      // Sincronizar contas + atualizar status
+                      await supabase.functions.invoke("sync-all-accounts", { body: { days_back: 7 } });
+                      await supabase.functions.invoke("auto-refresh-shipments");
+                      toast.success('✅ Sincronização concluída!');
+                      await loadStats();
+                    } catch (error: any) {
+                      toast.error(error.message || "Erro ao sincronizar");
+                    } finally {
+                      setIsSyncingAll(false);
+                    }
+                  }}
                   disabled={isSyncingAll}
                   variant="default"
-                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                  className="h-auto py-5 flex-col gap-2 rounded-xl touch-feedback"
                 >
                   {isSyncingAll ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    <ExternalLink className="h-5 w-5" />
+                    <RefreshCw className="h-6 w-6" />
                   )}
-                  <span className="text-xs font-medium">Sincronizar Contas</span>
+                  <span className="text-sm font-medium">Sincronizar Tudo</span>
+                  <span className="text-[10px] text-muted-foreground">Importar + Atualizar</span>
                 </Button>
 
                 <Button
-                  onClick={handleAutoRefresh}
-                  disabled={isRefreshing}
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-5 w-5" />
-                  )}
-                  <span className="text-xs font-medium">Atualizar Status</span>
-                </Button>
-
-                <Button
-                  onClick={handleCheckProblems}
+                  onClick={async () => {
+                    setIsCheckingProblems(true);
+                    try {
+                      toast.info('🔍 Verificando...');
+                      // Verificar problemas + diagnosticar + limpar
+                      await supabase.functions.invoke("check-stuck-shipments");
+                      const { data } = await supabase.functions.invoke("cleanup-alerts");
+                      toast.success(`✅ Verificação concluída! ${data?.message || ''}`);
+                      await loadStats();
+                    } catch (error: any) {
+                      toast.error(error.message || "Erro ao verificar");
+                    } finally {
+                      setIsCheckingProblems(false);
+                    }
+                  }}
                   disabled={isCheckingProblems}
                   variant="outline"
-                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
+                  className="h-auto py-5 flex-col gap-2 rounded-xl touch-feedback"
                 >
                   {isCheckingProblems ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (
-                    <Search className="h-5 w-5" />
+                    <CheckCircle className="h-6 w-6 text-success" />
                   )}
-                  <span className="text-xs font-medium">Verificar Problemas</span>
-                </Button>
-
-                <Button
-                  onClick={handleDiagnoseAlerts}
-                  disabled={isDiagnosing}
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback"
-                >
-                  {isDiagnosing ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-warning" />
-                  )}
-                  <span className="text-xs font-medium">Diagnosticar</span>
-                </Button>
-
-                <Button
-                  onClick={handleCleanupAlerts}
-                  disabled={isCleaning || isDiagnosing}
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2 rounded-xl touch-feedback col-span-2 md:col-span-1"
-                >
-                  {isCleaning ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-success" />
-                  ) : (
-                    <CheckCircle className="h-5 w-5 text-success" />
-                  )}
-                  <span className="text-xs font-medium">Corrigir Inconsistências</span>
+                  <span className="text-sm font-medium">Verificar e Corrigir</span>
+                  <span className="text-[10px] text-muted-foreground">Detectar + Resolver</span>
                 </Button>
               </div>
               
               <div className="mt-4 p-3 bg-muted/50 rounded-xl">
                 <p className="text-xs text-muted-foreground">
-                  💡 Use "Sincronizar Contas" para importar novos pedidos. "Verificar Problemas" detecta envios parados ou não devolvidos.
+                  💡 <strong>Sincronizar Tudo:</strong> Importa novos pedidos dos últimos 7 dias e atualiza status.<br/>
+                  <strong>Verificar e Corrigir:</strong> Detecta problemas e resolve inconsistências automaticamente.
                 </p>
               </div>
             </CardContent>
