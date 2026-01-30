@@ -710,7 +710,10 @@ export type Database = {
       }
       shipments_cache: {
         Row: {
+          cidade: string | null
+          cliente_nome: string | null
           created_at: string
+          estado: string | null
           last_ml_update: string
           ml_account_id: string | null
           order_id: string | null
@@ -723,7 +726,10 @@ export type Database = {
           tracking_number: string | null
         }
         Insert: {
+          cidade?: string | null
+          cliente_nome?: string | null
           created_at?: string
+          estado?: string | null
           last_ml_update?: string
           ml_account_id?: string | null
           order_id?: string | null
@@ -736,7 +742,10 @@ export type Database = {
           tracking_number?: string | null
         }
         Update: {
+          cidade?: string | null
+          cliente_nome?: string | null
           created_at?: string
+          estado?: string | null
           last_ml_update?: string
           ml_account_id?: string | null
           order_id?: string | null
@@ -839,6 +848,12 @@ export type Database = {
           deleted_ids: string[]
         }[]
       }
+      cleanup_old_shipments_raw_data: {
+        Args: never
+        Returns: {
+          cleaned_count: number
+        }[]
+      }
       cleanup_orphaned_alerts: {
         Args: never
         Returns: {
@@ -887,6 +902,7 @@ export type Database = {
           resolved_ids: string[]
         }[]
       }
+      slim_shipment_raw_data: { Args: { data: Json }; Returns: Json }
       sync_alert_counts: {
         Args: never
         Returns: {
