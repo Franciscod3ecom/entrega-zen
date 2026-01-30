@@ -6,73 +6,98 @@
 
 @layer base {
   :root {
-    /* Gold Primary (Brand) */
-    --gold: 45 100% 50%;
-    --gold-hover: 45 100% 45%;
-    --gold-glow: 45 100% 50%;
+    /* Gold Primary (Brand) - iOS Yellow */
+    --gold: 48 100% 50%;
+    --gold-hover: 48 100% 45%;
+    --gold-glow: 48 100% 50%;
 
-    /* Surfaces */
-    --surface-page: 0 0% 0%;
+    /* Brand - iOS Yellow Style */
+    --brand-primary: 48 100% 50%;
+    --brand-primary-soft: 48 100% 12%;
+    --brand-primary-strong: 48 100% 54%;
+
+    /* Surfaces - iOS Dark */
+    --surface-page: 240 14% 2%;
     --surface-card: 0 0% 7%;
     --surface-input: 0 0% 100% / 0.03;
-    --surface-elevated: 0 0% 100% / 0.08;
+    --surface-elevated: 0 0% 11%;
 
-    /* Text */
-    --text-primary: 0 0% 100%;
+    /* Text - iOS Style */
+    --text-primary: 0 0% 96%;
     --text-secondary: 0 0% 82%;
+    --text-tertiary: 0 0% 56%;
     --text-muted: 0 0% 54%;
+    --text-link: 48 100% 54%;
+
+    /* State Colors - iOS */
+    --state-success: 142 70% 45%;
+    --state-warning: 48 100% 50%;
+    --state-error: 4 100% 59%;
+    --state-info: 210 100% 50%;
+
+    /* Border - iOS Style */
+    --border-subtle: 0 0% 18%;
+    --border-strong: 0 0% 23%;
+
+    /* Motion Durations - iOS Style */
+    --duration-fast: 150ms;
+    --duration-default: 200ms;
+    --duration-slow: 300ms;
+
+    /* iOS Easing */
+    --ease-ios: cubic-bezier(0.25, 0.1, 0.25, 1);
 
     /* Core Semantic Tokens (Dark-only) */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
+    --background: 240 14% 2%;
+    --foreground: 0 0% 96%;
 
     --card: 0 0% 7%;
-    --card-foreground: 0 0% 100%;
+    --card-foreground: 0 0% 96%;
 
     --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 100%;
+    --popover-foreground: 0 0% 96%;
 
-    --primary: 45 100% 50%;
+    --primary: 48 100% 50%;
     --primary-foreground: 0 0% 0%;
-    --primary-light: 45 100% 60%;
-    --primary-dark: 45 100% 40%;
+    --primary-light: 48 100% 60%;
+    --primary-dark: 48 100% 40%;
 
     --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary-foreground: 0 0% 96%;
     --secondary-light: 0 0% 20%;
 
     --success: 142 70% 45%;
     --success-foreground: 0 0% 100%;
     --success-light: 142 70% 15%;
 
-    --danger: 0 75% 55%;
+    --danger: 4 100% 59%;
     --danger-foreground: 0 0% 100%;
-    --danger-light: 0 75% 15%;
+    --danger-light: 4 100% 15%;
 
-    --warning: 40 95% 55%;
+    --warning: 48 100% 50%;
     --warning-foreground: 0 0% 0%;
 
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 54%;
+    --muted-foreground: 0 0% 56%;
 
     --accent: 0 0% 12%;
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 0 0% 96%;
 
-    --destructive: 0 75% 55%;
+    --destructive: 4 100% 59%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 100% / 0.08;
     --input: 0 0% 100% / 0.08;
-    --ring: 45 100% 50%;
+    --ring: 48 100% 50%;
 
     --radius: 1rem;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(45 100% 50%), hsl(45 100% 40%));
+    --gradient-primary: linear-gradient(135deg, hsl(48 100% 50%), hsl(48 100% 40%));
     --gradient-secondary: linear-gradient(135deg, hsl(0 0% 15%), hsl(0 0% 10%));
     --gradient-success: linear-gradient(135deg, hsl(142 70% 45%), hsl(142 75% 35%));
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 7%), hsl(0 0% 4%));
-    --gradient-gold-glow: radial-gradient(ellipse at center, hsl(45 100% 50% / 0.15), transparent 70%);
+    --gradient-gold-glow: radial-gradient(ellipse at center, hsl(48 100% 50% / 0.15), transparent 70%);
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
@@ -278,6 +303,66 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  /* iOS Pressed State */
+  .ios-pressed {
+    @apply active:scale-[0.98] active:opacity-90 transition-transform;
+    transition-duration: var(--duration-fast);
+  }
+
+  /* iOS List Item */
+  .ios-list-item {
+    @apply h-14 px-4 flex items-center border-b;
+    background: hsl(var(--surface-elevated));
+    border-color: hsl(var(--border-subtle));
+  }
+
+  /* iOS List Item Selected */
+  .ios-list-item-selected {
+    background: hsl(var(--brand-primary-soft));
+  }
+
+  /* Yellow Text (only for short labels) */
+  .text-brand {
+    color: hsl(var(--brand-primary));
+  }
+
+  .text-brand-strong {
+    color: hsl(var(--brand-primary-strong));
+  }
+
+  /* iOS Card Shadow */
+  .ios-card-shadow {
+    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.7);
+  }
+
+  /* iOS Focus Ring */
+  .ios-focus {
+    @apply focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    --tw-ring-color: hsl(var(--brand-primary));
+  }
+
+  /* iOS Card Highlight */
+  .ios-card-highlight {
+    background: hsl(var(--brand-primary-soft));
+    border: 1px solid hsl(var(--brand-primary) / 0.2);
+  }
+
+  /* iOS Transition */
+  .ios-transition {
+    transition-timing-function: var(--ease-ios);
+    transition-duration: var(--duration-default);
+  }
+
+  .ios-transition-fast {
+    transition-timing-function: var(--ease-ios);
+    transition-duration: var(--duration-fast);
+  }
+
+  .ios-transition-slow {
+    transition-timing-function: var(--ease-ios);
+    transition-duration: var(--duration-slow);
   }
 }
 
