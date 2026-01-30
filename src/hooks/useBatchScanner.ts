@@ -240,8 +240,18 @@ export function useBatchScanner({
           } catch (err: any) {
             console.error(`[BatchScanner] Erro ao sincronizar ${item.shipmentId}:`, err);
             
-            // Se o erro for de "já atribuído ao mesmo motorista", tratar como duplicado
             const errorMsg = err.message || "Erro ao vincular";
+            
+            // Se não tem conta ML configurada
+            if (errorMsg.includes("Nenhuma conta ML configurada")) {
+              return {
+                ...item,
+                status: "error" as const,
+                errorMessage: "Configure uma conta do Mercado Livre primeiro",
+              };
+            }
+            
+            // Se o erro for de "já atribuído ao mesmo motorista", tratar como duplicado
             if (errorMsg.toLowerCase().includes("mesmo motorista") || 
                 errorMsg.toLowerCase().includes("already assigned")) {
               return {

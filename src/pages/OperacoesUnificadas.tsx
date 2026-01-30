@@ -48,6 +48,7 @@ interface RastreamentoItem {
   cliente_nome: string;
   cidade: string | null;
   estado: string | null;
+  driver_id: string | null;
   motorista_nome: string | null;
   motorista_phone: string | null;
   alertas_ativos: number;
@@ -337,7 +338,7 @@ export default function OperacoesUnificadas() {
 
     if (driverFilter !== "all") {
       filteredShips = filteredShips.filter(item =>
-        item.motorista_nome?.includes(driverFilter)
+        item.driver_id === driverFilter
       );
     }
 
@@ -370,8 +371,9 @@ export default function OperacoesUnificadas() {
     }
 
     if (driverFilter !== "all") {
+      const selectedDriver = drivers.find(d => d.id === driverFilter);
       filteredAlts = filteredAlts.filter(alert =>
-        alert.driver_name?.includes(driverFilter)
+        alert.driver_name === selectedDriver?.name
       );
     }
 
@@ -653,7 +655,7 @@ export default function OperacoesUnificadas() {
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       {drivers.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.name}>
+                        <SelectItem key={driver.id} value={driver.id}>
                           {driver.name}
                         </SelectItem>
                       ))}
@@ -721,7 +723,7 @@ export default function OperacoesUnificadas() {
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 {drivers.map((driver) => (
-                  <SelectItem key={driver.id} value={driver.name}>
+                  <SelectItem key={driver.id} value={driver.id}>
                     {driver.name}
                   </SelectItem>
                 ))}
