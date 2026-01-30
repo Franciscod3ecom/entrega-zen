@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-// Removido: import { useTenant } from "@/contexts/TenantContext";
 import {
   Table,
   TableBody,
@@ -23,10 +22,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, Plus, Phone, CheckCircle, XCircle } from "lucide-react";
+import { Truck, Plus, Phone, CheckCircle, XCircle, KeyRound, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CreateDriverCredentialsDialog } from "@/components/CreateDriverCredentialsDialog";
 
 interface Driver {
   id: string;
@@ -35,6 +35,8 @@ interface Driver {
   active: boolean;
   created_at: string;
   carrier_id: string | null;
+  user_id: string | null;
+  email: string | null;
   carriers?: {
     name: string;
   } | null;
@@ -51,7 +53,8 @@ export default function Motoristas() {
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newDriver, setNewDriver] = useState({ name: "", phone: "", carrier_id: "" });
-  // Removido: const { currentTenant } = useTenant();
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -222,6 +225,7 @@ export default function Motoristas() {
                 <TableHead>Nome</TableHead>
                 <TableHead>Telefone</TableHead>
                 <TableHead>Transportadora</TableHead>
+                <TableHead>Portal</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Data de Cadastro</TableHead>
                 <TableHead>Ações</TableHead>
@@ -230,7 +234,7 @@ export default function Motoristas() {
             <TableBody>
               {drivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <Truck className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">
                       Nenhum motorista cadastrado
@@ -252,6 +256,27 @@ export default function Motoristas() {
                         <Badge variant="outline">{driver.carriers.name}</Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {driver.user_id ? (
+                        <Badge variant="success" className="gap-1">
+                          <UserCheck className="h-3 w-3" />
+                          Vinculado
+                        </Badge>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => {
+                            setSelectedDriver({ id: driver.id, name: driver.name });
+                            setCredentialsDialogOpen(true);
+                          }}
+                        >
+                          <KeyRound className="h-3 w-3" />
+                          Criar Acesso
+                        </Button>
                       )}
                     </TableCell>
                     <TableCell>
@@ -285,6 +310,13 @@ export default function Motoristas() {
             </TableBody>
           </Table>
         </div>
+
+        <CreateDriverCredentialsDialog
+          open={credentialsDialogOpen}
+          onOpenChange={setCredentialsDialogOpen}
+          driver={selectedDriver}
+          onSuccess={loadDrivers}
+        />
       </div>
     </Layout>
   );
