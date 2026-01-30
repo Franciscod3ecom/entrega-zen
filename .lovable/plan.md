@@ -1,281 +1,264 @@
 
-# Plano: Integrar Design System "Yellow iOS Style"
+# Plano: Aplicar Design System iOS em Todas as Paginas
 
-## Resumo
-
-Integrar as novas regras do design system "Yellow iOS Style" (inspirado no iOS 15) ao sistema atual "D3ECOM Liquid Edition", mantendo a identidade visual existente enquanto adiciona:
-
-- Tipografia iOS com SF Pro e escala precisa
-- Cores semanticas alinhadas ao novo spec
-- Espacamento baseado em grid de 4pt
-- Regras de acessibilidade e contraste
-- Interacoes e motion patterns iOS-style
+## Objetivo
+1. Habilitar botao de acesso ao Portal do Motorista
+2. Criar menu de navegacao na pagina de Ajuda
+3. Aplicar novo design iOS em **todas as paginas** do sistema
 
 ---
 
-## Analise de Compatibilidade
+## 1. Habilitar Botao Login Motorista
 
-| Aspecto | Atual (D3ECOM) | Novo (Yellow iOS) | Acao |
-|---------|----------------|-------------------|------|
-| Cor primaria | #FFC700 (gold) | #FFC800 | Manter atual (quase identico) |
-| Background dark | #000000 | #050509 | Atualizar para iOS spec |
-| Tipografia | Inter | SF Pro | Adicionar SF Pro com fallback |
-| Spacing | Tailwind default | 4pt grid | Adicionar escala iOS |
-| Radius | 1rem base | 4-20px | Mapear valores |
-| Touch targets | 44px | 44px | OK - ja implementado |
+### Alteracao em `src/pages/Auth.tsx`
+Adicionar botao para acessar /motorista/login na tela de autenticacao:
 
----
+```text
+[Logo RASTREIO_FLEX]
+[Tabs Login/Cadastro]
+[Formulario]
+-------------------
+[Botao: Portal do Motorista] <- NOVO
+```
 
-## Arquivos a Modificar
-
-| Arquivo | Descricao |
-|---------|-----------|
-| `src/index.css` | Adicionar variaveis iOS, tipografia, cores light mode |
-| `tailwind.config.ts` | Estender spacing, fontFamily, radii |
-| `src/components/ui/button.tsx` | Aplicar pressed state (scale 0.98) |
-| `src/components/ui/input.tsx` | Atualizar focused border color |
-| `src/components/ui/card.tsx` | Adicionar variante highlight |
-| `src/components/ui/badge.tsx` | Adicionar variante outline-gold |
-| `src/components/ui/toast.tsx` | Aplicar novos estilos |
-| `src/components/ui/alert.tsx` | Adicionar variantes success/warning/info |
+**Implementacao:**
+- Adicionar Link para `/motorista/login` apos o formulario de login
+- Estilizar com `variant="ghost"` e icone de Truck
+- Texto: "Acesse o Portal do Motorista"
 
 ---
 
-## Detalhes Tecnicos
+## 2. Menu da Pagina de Ajuda
 
-### 1. Variaveis CSS (index.css)
+### Criar navegacao interna em `src/pages/Ajuda.tsx`
 
-Adicionar novas variaveis seguindo a nomenclatura iOS:
+**Menu lateral/superior com secoes:**
+- Fluxo de Uso
+- Manutencao do Sistema
+- Status e Badges
+- FAQ
+- Boas Praticas
+
+**Implementacao:**
+- Usar ScrollArea + ancora para cada secao
+- Estilo iOS: menu pill no topo ou sidebar sticky
+- IDs nos cards para navegacao suave
+
+---
+
+## 3. Design iOS em Todas as Paginas
+
+### Padroes a Aplicar
+
+| Elemento | Antes | Depois (iOS Style) |
+|----------|-------|-------------------|
+| Titulos | `text-3xl font-bold` | `text-display-lg` ou `text-title-lg` |
+| Subtitulos | `text-muted-foreground` | `text-callout text-text-secondary` |
+| Cards | `border-0 shadow-md` | `variant="ios"` + `rounded-ios-lg` |
+| Botoes | `variant="default"` | `variant="ios-primary"` + `ios-pressed` |
+| Inputs | default styling | `rounded-ios-md` + focus ring iOS |
+| Badges | varios | semantic variants + `rounded-ios-full` |
+| Spacing | Tailwind default | `ios-3`, `ios-4`, `ios-6` |
+| Tables | rounded-lg | `rounded-ios-md` |
+
+### Paginas a Atualizar (14 arquivos)
+
+| # | Pagina | Prioridade | Alteracoes Principais |
+|---|--------|------------|----------------------|
+| 1 | `Auth.tsx` | Alta | Cards iOS, botoes ios-primary, tipografia |
+| 2 | `Dashboard.tsx` | Alta | Cards metrica iOS, spacing 4pt, titulos |
+| 3 | `Ajuda.tsx` | Alta | Menu navegacao + cards iOS + tipografia |
+| 4 | `OperacoesUnificadas.tsx` | Alta | Tabs iOS, table iOS, badges |
+| 5 | `Bipagem.tsx` | Alta | CTAs iOS, cards driver, fullscreen |
+| 6 | `Motoristas.tsx` | Media | Table iOS, dialogs iOS, badges |
+| 7 | `Transportadoras.tsx` | Media | Table iOS, dialogs iOS |
+| 8 | `ConfigML.tsx` | Media | Cards status iOS, badges, alerts |
+| 9 | `VincularVenda.tsx` | Media | Search iOS, cards result |
+| 10 | `Alertas.tsx` | Media | Table iOS, badges semantic |
+| 11 | `Instalar.tsx` | Media | Cards plataforma iOS style |
+| 12 | `motorista/Login.tsx` | Media | Form iOS, card glass |
+| 13 | `motorista/Dashboard.tsx` | Media | Cards metrica, lista items |
+| 14 | `motorista/Bipar.tsx` | Baixa | Ja tem estilo adequado |
+
+---
+
+## 4. Alteracoes por Arquivo
+
+### 4.1 Layout.tsx (Base)
+- Header: `text-headline` para titulo
+- NavLinks: hover/active com `ios-pressed`
+- Bottom nav: `rounded-ios-lg` nos icones ativos
+
+### 4.2 Auth.tsx
+```tsx
+// Titulo
+<CardTitle className="text-title-lg">RASTREIO_FLEX</CardTitle>
+
+// Tabs
+<TabsList className="rounded-ios-lg">
+
+// Botoes
+<Button variant="ios-primary" size="ios-default">
+
+// NOVO: Link motorista
+<Button variant="ghost" asChild className="ios-pressed mt-4">
+  <Link to="/motorista/login">
+    <Truck /> Portal do Motorista
+  </Link>
+</Button>
+```
+
+### 4.3 Dashboard.tsx
+```tsx
+// Titulo
+<h1 className="text-title-lg md:text-display-lg">Dashboard</h1>
+<p className="text-callout text-text-secondary">
+
+// Cards metrica
+<Card variant="ios" className="rounded-ios-lg">
+<div className="text-display-lg font-bold">{stat.value}</div>
+
+// Botoes acao
+<Button variant="ios-primary" className="ios-pressed">
+```
+
+### 4.4 Ajuda.tsx
+```tsx
+// NOVO: Menu de navegacao
+<nav className="sticky top-16 z-30 liquid-glass rounded-ios-lg p-2 mb-6">
+  <div className="flex gap-2 overflow-x-auto">
+    <Button variant="ghost" size="sm" className="ios-pressed" onClick={() => scrollTo('fluxo')}>
+      Fluxo
+    </Button>
+    <Button variant="ghost" size="sm" className="ios-pressed" onClick={() => scrollTo('manutencao')}>
+      Manutencao
+    </Button>
+    // ... outros
+  </div>
+</nav>
+
+// Cards com IDs
+<Card variant="ios" id="fluxo" className="rounded-ios-lg scroll-mt-24">
+<CardTitle className="text-title-sm">
+
+// Titulos
+<h1 className="text-title-lg">Central de Ajuda</h1>
+```
+
+### 4.5 OperacoesUnificadas.tsx
+```tsx
+// Titulo
+<h1 className="text-title-lg">Operacoes Unificadas</h1>
+
+// Tabs
+<TabsList className="rounded-ios-lg liquid-glass">
+
+// Table container
+<div className="rounded-ios-md border overflow-hidden">
+
+// Badges
+<Badge variant="ios-success">
+<Badge variant="ios-warning">
+```
+
+### 4.6 Bipagem.tsx
+```tsx
+// Cards
+<Card variant="ios" className="rounded-ios-lg">
+
+// Select driver
+<SelectTrigger className="h-12 rounded-ios-md">
+
+// CTA principal
+<Button variant="ios-primary" size="ios-lg" className="ios-pressed">
+  <Camera /> Iniciar Scanner Rapido
+</Button>
+```
+
+### 4.7-4.14 Demais Paginas
+Aplicar mesmo padrao:
+- `text-title-lg` / `text-title-md` para titulos
+- `text-callout` para descricoes
+- `Card variant="ios"` para containers
+- `rounded-ios-*` para bordas
+- `ios-pressed` para interatividade
+- Badges semanticos (`variant="ios-success"`, etc)
+- Spacing usando `ios-4`, `ios-6`
+
+---
+
+## 5. Novas Classes Utilitarias (index.css)
+
+Adicionar ao CSS existente:
 
 ```css
-:root {
-  /* Text Colors - iOS Style */
-  --text-primary: 0 0% 96%;      /* #F5F5F7 */
-  --text-secondary: 0 0% 82%;    /* #D1D1D6 */
-  --text-tertiary: 0 0% 56%;     /* #8E8E93 */
-  --text-link: 48 100% 52%;      /* #FFD60A */
-  
-  /* Brand - iOS Yellow */
-  --brand-primary: 48 100% 50%;       /* #FFC800 */
-  --brand-primary-soft: 48 100% 12%;  /* #3A3000 */
-  --brand-primary-strong: 48 100% 54%;/* #FFD60A */
-  
-  /* State Colors */
-  --state-success: 142 70% 45%;  /* #34C759 */
-  --state-warning: 48 100% 50%;  /* #FFCC00 */
-  --state-error: 4 100% 59%;     /* #FF3B30 */
-  --state-info: 210 100% 50%;    /* #0A84FF */
-  
-  /* Border - iOS Style */
-  --border-subtle: 0 0% 18%;     /* #2C2C2E */
-  --border-strong: 0 0% 23%;     /* #3A3A3C */
-  
-  /* Typography */
-  --font-primary: "SF Pro", -apple-system, system-ui, "Segoe UI", sans-serif;
-  --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
-  
-  /* Motion Durations - iOS Style */
-  --duration-fast: 150ms;
-  --duration-default: 200ms;
-  --duration-slow: 300ms;
-  
-  /* iOS Easing */
-  --ease-ios: cubic-bezier(0.25, 0.1, 0.25, 1);
+/* Scroll suave para ancoras */
+.scroll-smooth-section {
+  scroll-behavior: smooth;
+  scroll-margin-top: 6rem;
 }
-```
 
-### 2. Tipografia iOS (tailwind.config.ts)
-
-Adicionar escala tipografica iOS com tracking preciso:
-
-```typescript
-fontSize: {
-  // iOS Typography Scale
-  'display-lg': ['34px', { lineHeight: '40px', letterSpacing: '0.37px', fontWeight: '700' }],
-  'title-lg': ['28px', { lineHeight: '34px', letterSpacing: '0.36px', fontWeight: '700' }],
-  'title-md': ['22px', { lineHeight: '28px', letterSpacing: '0.35px', fontWeight: '600' }],
-  'title-sm': ['20px', { lineHeight: '24px', letterSpacing: '0.38px', fontWeight: '600' }],
-  'headline': ['17px', { lineHeight: '22px', letterSpacing: '-0.41px', fontWeight: '600' }],
-  'body': ['17px', { lineHeight: '22px', letterSpacing: '-0.41px', fontWeight: '400' }],
-  'callout': ['16px', { lineHeight: '21px', letterSpacing: '-0.32px', fontWeight: '400' }],
-  'subhead': ['15px', { lineHeight: '20px', letterSpacing: '-0.24px', fontWeight: '400' }],
-  'caption': ['13px', { lineHeight: '18px', letterSpacing: '-0.08px', fontWeight: '400' }],
-  'footnote': ['12px', { lineHeight: '16px', letterSpacing: '0px', fontWeight: '400' }],
-},
-```
-
-### 3. Espacamento Grid 4pt
-
-Adicionar escala de spacing iOS:
-
-```typescript
-spacing: {
-  'ios-0': '0px',
-  'ios-1': '4px',
-  'ios-2': '8px',
-  'ios-3': '12px',
-  'ios-4': '16px',
-  'ios-5': '20px',
-  'ios-6': '24px',
-  'ios-7': '32px',
-  'ios-8': '40px',
-  'ios-9': '48px',
-  'ios-10': '64px',
-},
-```
-
-### 4. Border Radius iOS
-
-Mapear valores de radius:
-
-```typescript
-borderRadius: {
-  'ios-none': '0px',
-  'ios-xs': '4px',
-  'ios-sm': '8px',
-  'ios-md': '12px',
-  'ios-lg': '20px',
-  'ios-full': '999px',
-},
-```
-
-### 5. Button Component
-
-Adicionar pressed state com scale:
-
-```typescript
-// Adicionar ao base styles
-"active:scale-[0.98] transition-all duration-150"
-
-// Atualizar disabled state
-"disabled:bg-border-subtle disabled:text-text-tertiary disabled:shadow-none"
-```
-
-### 6. Card Component
-
-Adicionar variante highlight:
-
-```typescript
-// Nova variante
-highlight: "bg-brand-primary-soft border-brand-primary/20"
-```
-
-### 7. Badge Component
-
-Adicionar variante outline-gold:
-
-```typescript
-"outline-gold": "bg-transparent text-brand-primary border-brand-primary border"
-```
-
-### 8. Alert Component
-
-Adicionar variantes semanticas:
-
-```typescript
-variants: {
-  success: "border-state-success/30 bg-state-success/10 [&>svg]:text-state-success",
-  warning: "border-state-warning/30 bg-state-warning/10 [&>svg]:text-state-warning",
-  info: "border-state-info/30 bg-state-info/10 [&>svg]:text-state-info",
+/* Ajuda menu pill active */
+.menu-pill-active {
+  @apply bg-brand-primary-soft text-brand-primary font-medium;
 }
 ```
 
 ---
 
-## Regras de Design a Documentar
+## 6. Ordem de Implementacao
 
-### Uso do Amarelo
+**Fase 1 - Core (Critico)**
+1. Auth.tsx - Botao motorista + iOS design
+2. Ajuda.tsx - Menu navegacao + iOS design
+3. Layout.tsx - Refinamentos iOS
 
-1. **Botoes primarios**: Maximo 1 por contexto
-2. **Texto amarelo**: Apenas em badges, numeros e labels curtos
-3. **Links**: Usar brand-primary-strong (#FFD60A) em dark mode
-4. **Evitar**: Paragrafos longos com texto amarelo
+**Fase 2 - Principais**
+4. Dashboard.tsx - Metricas iOS
+5. OperacoesUnificadas.tsx - Tabs/Tables iOS
+6. Bipagem.tsx - CTAs iOS
 
-### Acessibilidade
+**Fase 3 - Secundarias**
+7-11. Motoristas, Transportadoras, ConfigML, VincularVenda, Alertas
 
-1. **Contraste minimo**: 4.5:1 para texto body, 3:1 para texto grande
-2. **Touch targets**: Minimo 44x44px
-3. **Font size**: Minimo 13px para texto secundario, 17px para body
-
-### Motion
-
-1. **Transicoes simples**: 200ms
-2. **Modais e telas**: 300ms
-3. **Easing**: cubic-bezier(0.25, 0.1, 0.25, 1) - iOS standard
+**Fase 4 - Portal Motorista**
+12-14. Login, Dashboard, Bipar do motorista
 
 ---
 
-## Classes Utilitarias Novas (index.css)
+## 7. Resumo de Arquivos a Modificar
 
-```css
-/* iOS Pressed State */
-.ios-pressed {
-  @apply active:scale-[0.98] active:opacity-90 transition-transform duration-150;
-}
+| Arquivo | Tipo de Alteracao |
+|---------|------------------|
+| `src/pages/Auth.tsx` | Botao motorista + iOS style |
+| `src/pages/Ajuda.tsx` | Menu navegacao + iOS style |
+| `src/pages/Dashboard.tsx` | iOS style completo |
+| `src/pages/OperacoesUnificadas.tsx` | iOS style completo |
+| `src/pages/Bipagem.tsx` | iOS style completo |
+| `src/pages/Motoristas.tsx` | iOS style |
+| `src/pages/Transportadoras.tsx` | iOS style |
+| `src/pages/ConfigML.tsx` | iOS style |
+| `src/pages/VincularVenda.tsx` | iOS style |
+| `src/pages/Alertas.tsx` | iOS style |
+| `src/pages/Instalar.tsx` | iOS style |
+| `src/pages/motorista/Login.tsx` | iOS style |
+| `src/pages/motorista/Dashboard.tsx` | iOS style |
+| `src/pages/motorista/Bipar.tsx` | iOS style (menor) |
+| `src/components/Layout.tsx` | Refinamentos iOS |
+| `src/index.css` | Classes utilitarias |
 
-/* iOS List Item */
-.ios-list-item {
-  @apply h-14 px-4 flex items-center bg-surface-elevated border-b border-border-subtle;
-}
-
-/* iOS List Item Selected */
-.ios-list-item-selected {
-  @apply bg-brand-primary-soft;
-}
-
-/* Yellow Text (only for short labels) */
-.text-brand {
-  color: hsl(var(--brand-primary));
-}
-
-/* iOS Card Shadow */
-.ios-card-shadow {
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.7);
-}
-
-/* iOS Focus Ring */
-.ios-focus {
-  @apply focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
-}
-```
+**Total: 16 arquivos**
 
 ---
 
-## Ordem de Implementacao
+## 8. Resultado Esperado
 
-1. **Fase 1**: Atualizar `index.css` com novas variaveis
-2. **Fase 2**: Estender `tailwind.config.ts` com tipografia e spacing
-3. **Fase 3**: Atualizar componentes UI (button, input, card, badge, alert)
-4. **Fase 4**: Adicionar classes utilitarias iOS
-5. **Fase 5**: Testar contraste e acessibilidade
-
----
-
-## Compatibilidade
-
-- **Backward compatible**: Todas as classes existentes continuam funcionando
-- **Adicao incremental**: Novas classes `ios-*` e `text-*` para novos estilos
-- **Variaveis CSS**: Novas variaveis nao sobrescrevem as existentes
-- **Componentes**: Variantes existentes mantidas, novas adicionadas
-
----
-
-## Exemplo de Uso
-
-Antes:
-```tsx
-<Button variant="default">Confirmar</Button>
-```
-
-Depois (mesmo comportamento, com pressed state automatico):
-```tsx
-<Button variant="default">Confirmar</Button>
-```
-
-Novo uso com classes iOS:
-```tsx
-<div className="ios-list-item ios-pressed">
-  <span className="text-body">Item de lista</span>
-  <Badge variant="outline-gold">Novo</Badge>
-</div>
-```
+- Botao "Portal do Motorista" visivel na tela de login
+- Pagina de Ajuda com menu de navegacao interno
+- Todas as paginas com visual iOS consistente:
+  - Tipografia SF Pro scale
+  - Cores brand-primary (#FFC800)
+  - Radius iOS (8-20px)
+  - Pressed states (scale 0.98)
+  - Spacing 4pt grid
+  - Cards com sombras iOS
