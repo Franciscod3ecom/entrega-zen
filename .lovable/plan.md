@@ -1,172 +1,109 @@
 
-# Plano: Corrigir Sistema de Bipagem e Filtro por Motorista
-
-## Diagnóstico Completo
-
-Identifiquei **dois problemas distintos** que estão causando a falha:
-
-### Problema 1: Bipagem Falhando - "Nenhuma conta ML configurada"
-
-**Causa Raiz:**
-Os logs mostram que o usuário `8798f401-634f-4fde-8262-a2f3e6777629` está tentando bipar, mas:
-- Esse usuário tem **1 motorista cadastrado** (Fernando)
-- Esse usuário **NÃO tem contas ML configuradas**
-
-A edge function `scan-bind-auto` busca contas ML pelo `owner_user_id` do JWT e falha porque retorna array vazio.
-
-```text
-Usuarios no sistema:
-+--------------------------------------+----------+-------------+
-| owner_user_id                        | ML Contas| Motoristas  |
-+--------------------------------------+----------+-------------+
-| 0c2aac85-3153-47aa-968c-24d4098d45ec | 5        | 6           | <-- Funciona
-| 6246ed49-f5ca-4f0d-b5d5-cce950140db9 | 1        | 2           | <-- Funciona  
-| 8798f401-634f-4fde-8262-a2f3e6777629 | 0        | 1           | <-- ERRO!
-+--------------------------------------+----------+-------------+
-```
-
-**Impacto:** 
-- `driver_assignments` está vazia (0 registros)
-- `scan_logs` está vazia (0 registros)
-- Nenhum pacote foi vinculado a motoristas
+## Objetivo (o que vai mudar)
+Fazer a bipagem/sincronização funcionar para **usuário motorista sem conta Mercado Livre**, usando automaticamente as **contas ML do dono da operação (admin)** — e garantindo que o pacote bipado apareça depois no **Rastreamento / Operações Unificadas** com filtro por motorista.
 
 ---
 
-### Problema 2: Filtro por Motorista Usando Nome em vez de ID
+## Diagnóstico (causa raiz confirmada no código)
+Hoje a função de backend usada na bipagem é a:
 
-**Causa Raiz:**
-No `OperacoesUnificadas.tsx`, o filtro está usando o **nome do motorista** como valor:
+- `supabase/functions/scan-bind-auto/index.ts`
 
-```tsx
-// Linha 656 - Select value usa driver.name
-<SelectItem key={driver.id} value={driver.name}>
-  {driver.name}
-</SelectItem>
+Ela faz isso:
 
-// Linha 338-341 - Filtro usa includes() com nome
-if (driverFilter !== "all") {
-  filteredShips = filteredShips.filter(item =>
-    item.motorista_nome?.includes(driverFilter)  // Busca parcial por nome
-  );
-}
-```
+1) Lê o usuário logado pelo JWT:
+- `owner_user_id = user.id` (linha 35)
 
-**Problemas:**
-1. `includes()` faz busca parcial - "João" encontraria "João Silva" E "Maria João"
-2. Sensivel a case - "joao" não encontra "João"
-3. Se dois motoristas tiverem nomes similares, pode haver colisão
+2) Busca contas ML por esse `owner_user_id`:
+- `.from('ml_accounts').eq('owner_user_id', owner_user_id)` (linhas 58–63)
+
+Problema:
+- Quando quem está logado é **motorista**, `user.id` é o **id do usuário motorista**, não o id do **dono da operação**.
+- Logo a função não encontra contas ML (mesmo que a operação tenha 5 contas), dá erro “Nenhuma conta ML configurada”.
+- E pior: ela também grava `shipments_cache` e `driver_assignments` com `owner_user_id` errado, então o admin não enxerga esses vínculos (e o filtro por motorista fica “vazio”/sem bater).
+
+Isso explica exatamente o seu cenário (LXT): motorista bipou, mas a sincronização/vinculação e o “ver depois” falham porque o “dono” usado está errado.
 
 ---
 
-## Solucao
+## Solução (como vai funcionar depois)
+### Regra nova para o `scan-bind-auto`
+- Se o usuário logado for **driver**:
+  - descobrir o `owner_user_id` correto através do **cadastro do motorista** (tabela `drivers`)
+  - usar esse `owner_user_id` para:
+    - buscar contas ML
+    - gravar `shipments_cache`, `driver_assignments` e `scan_logs`
+- Se o usuário logado não for driver (admin/ops):
+  - continua usando `owner_user_id = user.id` como hoje
 
-### Parte 1: Melhorar Feedback de Erro na Bipagem
+Além disso, quando for motorista logado, vamos **validar segurança**:
+- o `driver_id` enviado no body precisa ser o mesmo motorista vinculado ao usuário (evita um motorista “bipar para outro motorista” passando id manual).
 
-Atualizar o frontend para mostrar mensagem clara quando o usuario nao tem contas ML:
+---
 
+## Mudanças planejadas (arquivos)
+### 1) Ajustar backend `scan-bind-auto` (principal)
+**Arquivo:** `supabase/functions/scan-bind-auto/index.ts`
+
+Implementar a lógica:
+
+1. Identificar usuário logado (mantém como está, via `supabase.auth.getUser(token)`).
+2. Checar se o usuário tem role `driver` (consulta em `user_roles`):
+   - `select role where user_id = user.id and role = 'driver'`
+3. Se for driver:
+   - buscar o registro do motorista pelo `driver_id` do request:
+     - `drivers.select('id,user_id,owner_user_id,active').eq('id', driver_id).maybeSingle()`
+   - validar:
+     - `active === true`
+     - `driver.user_id === user.id`
+   - definir `operation_owner_user_id = driver.owner_user_id`
+4. Se não for driver:
+   - `operation_owner_user_id = user.id`
+5. Trocar todas as ocorrências que hoje usam `owner_user_id` para usar `operation_owner_user_id`:
+   - busca em `ml_accounts`
+   - upsert em `shipments_cache`
+   - leitura/escrita em `driver_assignments`
+   - insert em `scan_logs`
+
+Resultado prático:
+- motorista vai conseguir usar as contas ML do admin
+- o vínculo vai cair no “escopo” certo e aparecer no rastreamento do admin, inclusive com `driver_id` para o filtro
+
+### 2) Melhorar mensagem de erro no app (apenas UX)
 **Arquivo:** `src/hooks/useBatchScanner.ts`
 
-Adicionar tratamento especifico para o erro "Nenhuma conta ML configurada":
+Hoje a mensagem é:
+- “Configure uma conta do Mercado Livre primeiro”
 
-```tsx
-// Linha ~241-258: Tratar erro especifico
-} catch (err: any) {
-  const errorMsg = err.message || "Erro ao vincular";
-  
-  // Se não tem conta ML configurada
-  if (errorMsg.includes("Nenhuma conta ML configurada")) {
-    return {
-      ...item,
-      status: "error" as const,
-      errorMessage: "Configure uma conta do Mercado Livre primeiro",
-    };
-  }
-  // ... resto do tratamento
-}
-```
+Isso confunde o motorista (porque ele não deve configurar conta ML). Vamos ajustar para algo do tipo:
+- “A operação não tem conta do Mercado Livre conectada. Peça ao administrador para conectar em Config ML.”
+
+(Continuamos detectando pelo texto “Nenhuma conta ML configurada” que vem do backend.)
 
 ---
 
-### Parte 2: Corrigir Filtro por Motorista
-
-**Arquivo:** `src/pages/OperacoesUnificadas.tsx`
-
-Alterar o filtro para usar `driver_id` em vez de `motorista_nome`:
-
-| Local | De | Para |
-|-------|-----|------|
-| Linha 656 (mobile) | `value={driver.name}` | `value={driver.id}` |
-| Linha 723 (desktop) | `value={driver.name}` | `value={driver.id}` |
-| Linha 338-341 | `includes(driverFilter)` | Comparacao exata por `driver_id` |
-| Linha 372-374 | `includes(driverFilter)` | Comparacao exata por `driver_id` |
-
-Porem, a view `v_rastreamento_completo` retorna `motorista_nome` mas **NAO retorna `driver_id`**. 
-
-**Opcoes:**
-1. **Opcao A (Recomendada):** Adicionar `da.driver_id` na view e filtrar por ID
-2. **Opcao B:** Manter filtro por nome, mas usar comparacao exata (`===`)
-
-**Escolha: Opcao A** - Adicionar driver_id na view (ja existe, verificar linha 82 da migracao)
-
-Verificando a view atual, ela ja inclui `da.driver_id`. O problema e que o frontend nao esta usando.
-
-**Correcoes no frontend:**
-
-```tsx
-// Interface (linha 40-57) - adicionar driver_id
-interface RastreamentoItem {
-  // ... campos existentes
-  driver_id: string | null;  // ADICIONAR
-}
-
-// Select mobile (linha 656)
-<SelectItem key={driver.id} value={driver.id}>
-  {driver.name}
-</SelectItem>
-
-// Select desktop (linha 723)
-<SelectItem key={driver.id} value={driver.id}>
-  {driver.name}
-</SelectItem>
-
-// Filtro shipments (linha 338-341)
-if (driverFilter !== "all") {
-  filteredShips = filteredShips.filter(item =>
-    item.driver_id === driverFilter
-  );
-}
-
-// Filtro alerts - precisa adicionar driver_id nos alerts tambem
-// Ou manter comparacao por nome exata para alerts
-```
+## Como vamos validar (passo a passo, fim-a-fim)
+1) Logar como admin da operação que tem contas ML conectadas.
+2) Criar/confirmar um motorista com usuário vinculado (login motorista funcionando).
+3) Logar no app motorista e bipar 2–3 etiquetas:
+   - deve retornar `success: true` no `scan-bind-auto`
+   - deve gravar `driver_assignments` com `owner_user_id` do admin
+4) Ir em **Operações Unificadas** (admin) e filtrar pelo motorista:
+   - os pacotes bipados devem aparecer.
+5) Teste de segurança:
+   - tentar forçar outro `driver_id` (se houver forma) deve falhar com erro de autorização.
 
 ---
 
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `src/hooks/useBatchScanner.ts` | Melhorar mensagem de erro para "sem conta ML" |
-| `src/pages/OperacoesUnificadas.tsx` | Interface: adicionar `driver_id`, Selects: usar `driver.id`, Filtro: comparar por ID |
+## Observações importantes (para evitar regressões)
+- Não vamos exigir conta ML no usuário motorista (isso é o que estamos corrigindo).
+- A correção precisa ser no backend porque o app não deve carregar tokens/contas ML no cliente.
+- Essa mudança também corrige a causa de “não aparece no filtro” porque o join da view `v_rastreamento_completo` depende do `owner_user_id` consistente entre `shipments_cache` e `driver_assignments`.
 
 ---
 
-## Validacao
+## Entregáveis
+- `scan-bind-auto` passa a funcionar para motorista usando as contas da operação
+- registros ficam visíveis para o admin no rastreamento e filtro por motorista
+- mensagem de erro no app deixa de instruir o motorista a configurar ML
 
-Apos as correcoes:
-
-1. **Bipagem:** Usuario sem conta ML vera mensagem clara "Configure uma conta do Mercado Livre primeiro"
-
-2. **Filtro:** Ao selecionar um motorista:
-   - Lista mostrara apenas envios com `driver_id` correspondente
-   - Sem colisao de nomes
-   - Comparacao exata
-
----
-
-## Nota Importante
-
-Para testar a bipagem completamente, o usuario `8798f401-634f-4fde-8262-a2f3e6777629` precisara:
-1. Ir em **Config ML** 
-2. Conectar pelo menos uma conta do Mercado Livre
-3. Depois os scans funcionarao e criarao registros em `driver_assignments`
