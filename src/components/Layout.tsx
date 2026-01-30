@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home, Download, Palette, HelpCircle } from "lucide-react";
+import { Package, Truck, LogOut, Menu, Link2, Settings, Scan, TruckIcon, Route, Home, Download, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +29,6 @@ const navItems: NavItem[] = [
   { to: "/vincular", icon: Link2, label: "Vincular Venda", shortLabel: "Vincular" },
   { to: "/config-ml", icon: Settings, label: "Config ML", shortLabel: "Config" },
   { to: "/ajuda", icon: HelpCircle, label: "Ajuda" },
-  { to: "/design-system", icon: Palette, label: "Design System", shortLabel: "Design" },
 ];
 
 // Mobile bottom navigation items (most used)
