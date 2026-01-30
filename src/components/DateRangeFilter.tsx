@@ -112,45 +112,34 @@ export function DateRangeFilter({ value, customRange, onChange, className }: Dat
         </SelectContent>
       </Select>
 
-      {showCustom && (
-        <Popover open={showCustom} onOpenChange={setShowCustom}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="h-11 rounded-xl">
-              {tempRange ? (
-                <>
-                  {format(tempRange.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
-                  {format(tempRange.to, "dd/MM/yyyy", { locale: ptBR })}
-                </>
-              ) : (
-                "Selecionar datas"
-              )}
+      <Popover open={showCustom} onOpenChange={setShowCustom}>
+        <PopoverTrigger asChild>
+          <span className="sr-only">Abrir calendário</span>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="range"
+            selected={tempRange ? { from: tempRange.from, to: tempRange.to } : undefined}
+            onSelect={(range) => {
+              if (range?.from && range?.to) {
+                setTempRange({ from: range.from, to: range.to });
+              } else if (range?.from) {
+                setTempRange({ from: range.from, to: range.from });
+              }
+            }}
+            numberOfMonths={2}
+            locale={ptBR}
+          />
+          <div className="p-3 border-t flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowCustom(false)}>
+              Cancelar
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              selected={tempRange ? { from: tempRange.from, to: tempRange.to } : undefined}
-              onSelect={(range) => {
-                if (range?.from && range?.to) {
-                  setTempRange({ from: range.from, to: range.to });
-                } else if (range?.from) {
-                  setTempRange({ from: range.from, to: range.from });
-                }
-              }}
-              numberOfMonths={2}
-              locale={ptBR}
-            />
-            <div className="p-3 border-t flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowCustom(false)}>
-                Cancelar
-              </Button>
-              <Button size="sm" onClick={handleCustomConfirm} disabled={!tempRange}>
-                Aplicar
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-      )}
+            <Button size="sm" onClick={handleCustomConfirm} disabled={!tempRange}>
+              Aplicar
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
