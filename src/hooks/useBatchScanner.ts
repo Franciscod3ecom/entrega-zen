@@ -242,12 +242,12 @@ export function useBatchScanner({
             
             const errorMsg = err.message || "Erro ao vincular";
             
-            // Se não tem conta ML configurada
+            // Se não tem conta ML configurada na operação
             if (errorMsg.includes("Nenhuma conta ML configurada")) {
               return {
                 ...item,
                 status: "error" as const,
-                errorMessage: "Configure uma conta do Mercado Livre primeiro",
+                errorMessage: "A operação não tem conta ML conectada. Peça ao administrador para conectar em Config ML.",
               };
             }
             
