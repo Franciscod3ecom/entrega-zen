@@ -1,97 +1,160 @@
-# Plano: Melhorias RASTREIO_FLEX - IMPLEMENTADO ✅
 
-## Status das Implementações
+# Plano: Sistema de Credenciais de Motorista pelo Admin
 
-| # | Melhoria | Status | Arquivos |
-|---|----------|--------|----------|
-| 1 | Corrigir botão data personalizada | ✅ Concluído | `DateRangeFilter.tsx` |
-| 2 | PWA para instalação mobile | ✅ Concluído | `vite.config.ts`, `index.html`, `Instalar.tsx` |
-| 3 | Portal do Motorista | ✅ Concluído | `/motorista/*`, `useDriverAuth.ts` |
-| 4 | Sincronização automática order_id | ✅ Concluído | `useBatchScanner.ts` |
+## Objetivo
+Permitir que o admin crie email e senha diretamente para o motorista, de forma simples e prática.
 
 ---
 
-## 1. Correção DateRangeFilter ✅
+## Fluxo Simplificado
 
-**Problema:** PopoverTrigger dentro de bloco condicional impedia abertura do calendário.
-
-**Solução aplicada:** Mover Popover para fora do condicional, deixando sempre presente mas controlado por `open={showCustom}`.
-
----
-
-## 2. PWA para Instalação Mobile ✅
-
-**Arquivos criados/modificados:**
-- `vite.config.ts` - Plugin vite-plugin-pwa configurado
-- `index.html` - Meta tags PWA (theme-color, apple-touch-icon, manifest)
-- `src/pages/Instalar.tsx` - Página de instalação com detecção de plataforma
-- `public/pwa-192x192.png` - Ícone 192x192
-- `public/pwa-512x512.png` - Ícone 512x512
-
-**Funcionalidades:**
-- Detecção automática iOS/Android/Desktop
-- Botão "Instalar App" no Android (via beforeinstallprompt)
-- Instruções passo-a-passo para iOS (Safari)
-- Workbox com cache de assets e API Supabase
-
----
-
-## 3. Portal do Motorista ✅
-
-**Páginas criadas:**
-- `/motorista/login` - Login com email/senha
-- `/motorista/dashboard` - Lista pacotes atribuídos ao motorista
-- `/motorista/bipar` - Scanner de QR codes
-
-**Hook criado:**
-- `useDriverAuth.ts` - Verifica role 'driver', busca dados do motorista vinculado
-
-**Migração SQL aplicada:**
-- Colunas `invite_token`, `invite_expires_at`, `email` em `drivers`
-- RLS policies para motoristas verem apenas seus dados
-
-**Fluxo de segurança:**
-1. Usuário faz login
-2. Sistema verifica se tem role 'driver' em `user_roles`
-3. Sistema busca motorista vinculado via `drivers.user_id`
-4. Motorista vê apenas shipments atribuídos a ele
-
----
-
-## 4. Sincronização Automática order_id ✅
-
-**Modificação em `useBatchScanner.ts`:**
-- Adicionado `useQueryClient` do TanStack Query
-- Após cada sync bem-sucedido, invalida queries:
-  - `['shipments']`
-  - `['v_rastreamento_completo']`
-
-**Resultado:** UI atualiza imediatamente após bipagem, sem esperar realtime.
-
----
-
-## Próximos Passos Sugeridos
-
-1. **Testar o filtro de data personalizado** - Verificar se o calendário abre corretamente
-2. **Testar instalação PWA** - Acessar `/instalar` em dispositivo móvel
-3. **Cadastrar motorista com usuário** - Vincular `drivers.user_id` a um `auth.user`
-4. **Testar portal do motorista** - Login em `/motorista/login`
-
----
-
-## Arquivos Modificados
-
+```text
+Admin na tela /motoristas
+        |
+        v
+Clica "Criar Acesso" no motorista desejado
+        |
+        v
+Preenche email e senha do motorista
+        |
+        v
+Sistema cria usuário no auth.users
+Sistema vincula drivers.user_id
+Sistema adiciona role 'driver'
+        |
+        v
+Admin passa credenciais ao motorista (WhatsApp)
+        |
+        v
+Motorista faz login em /motorista/login
 ```
-src/components/DateRangeFilter.tsx  (fix Popover)
-src/hooks/useBatchScanner.ts        (cache invalidation)
-src/hooks/useDriverAuth.ts          (novo)
-src/pages/Instalar.tsx              (novo)
-src/pages/motorista/Login.tsx       (novo)
-src/pages/motorista/Dashboard.tsx   (novo)
-src/pages/motorista/Bipar.tsx       (novo)
-src/App.tsx                         (novas rotas)
-vite.config.ts                      (PWA plugin)
-index.html                          (PWA meta tags)
-public/pwa-192x192.png              (novo)
-public/pwa-512x512.png              (novo)
+
+---
+
+## Arquivos a Criar/Modificar
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `supabase/functions/create-driver-credentials/index.ts` | Criar | Cria usuário e vincula ao motorista |
+| `src/components/CreateDriverCredentialsDialog.tsx` | Criar | Dialog para inserir email/senha |
+| `src/pages/Motoristas.tsx` | Modificar | Adicionar botão e integrar dialog |
+
+---
+
+## Detalhes Técnicos
+
+### 1. Edge Function: `create-driver-credentials`
+
+**Responsabilidades:**
+- Receber `driver_id`, `email`, `password`
+- Criar usuário em `auth.users` usando `supabase.auth.admin.createUser()`
+- Inserir role `driver` em `user_roles`
+- Atualizar `drivers` com `user_id` e `email`
+- Retornar sucesso
+
+**Segurança:**
+- Usa `SUPABASE_SERVICE_ROLE_KEY` (apenas no backend)
+- Verifica se chamador é admin/ops
+- Email confirmado automaticamente (sem verificação por email)
+
+```typescript
+// Pseudocódigo da Edge Function
+const { driver_id, email, password } = body;
+
+// 1. Criar usuário
+const { data: authUser } = await supabase.auth.admin.createUser({
+  email,
+  password,
+  email_confirm: true  // Já confirma, não precisa verificar email
+});
+
+// 2. Adicionar role 'driver'
+await supabase.from('user_roles').insert({
+  user_id: authUser.user.id,
+  role: 'driver'
+});
+
+// 3. Vincular ao motorista
+await supabase.from('drivers').update({
+  user_id: authUser.user.id,
+  email: email
+}).eq('id', driver_id);
 ```
+
+### 2. Componente: `CreateDriverCredentialsDialog`
+
+**Campos:**
+- Email (obrigatório)
+- Senha (obrigatório, mínimo 6 caracteres)
+- Confirmar senha
+
+**Validações:**
+- Email válido
+- Senha com pelo menos 6 caracteres
+- Senhas coincidem
+
+**Após sucesso:**
+- Mostra mensagem de confirmação
+- Opção de copiar credenciais para compartilhar
+
+### 3. Atualização da Tela de Motoristas
+
+**Nova coluna na tabela:** Acesso Portal
+
+**Estados possíveis:**
+- **Sem acesso**: Mostra botão "Criar Acesso"
+- **Com acesso**: Mostra badge "Portal ✓" + email
+
+**Interface:**
+```text
++------------------------------------------+
+| Nome   | Telefone | Portal      | Ações  |
+|--------|----------|-------------|--------|
+| João   | 81...    | [Criar Acesso] | ... |
+| Maria  | 82...    | m@x.com ✓   | ...    |
++------------------------------------------+
+```
+
+---
+
+## Fluxo de Uso
+
+1. **Admin cadastra motorista** (nome, telefone)
+2. **Admin clica "Criar Acesso"**
+3. **Preenche email e senha**
+4. **Sistema cria credenciais**
+5. **Admin envia por WhatsApp:**
+   - "Acesse: rastreioflex.lovable.app/motorista/login"
+   - "Email: joao@email.com"
+   - "Senha: senha123"
+6. **Motorista faz login** e vê seus pacotes
+
+---
+
+## Configuração Necessária
+
+### supabase/config.toml
+```toml
+[functions.create-driver-credentials]
+verify_jwt = false
+```
+
+---
+
+## Validações de Segurança
+
+1. **Senha mínima**: 6 caracteres
+2. **Email único**: Verifica se email já existe
+3. **Motorista único**: Verifica se motorista já tem acesso
+4. **Apenas admin/ops**: Verifica role do chamador
+5. **Service Role Key**: Nunca exposta ao frontend
+
+---
+
+## Resumo da Implementação
+
+**Fase 1:** Criar Edge Function `create-driver-credentials`
+**Fase 2:** Criar componente `CreateDriverCredentialsDialog`
+**Fase 3:** Integrar na página `Motoristas.tsx`
+
+O admin poderá criar credenciais com 3 cliques: Criar Acesso -> Preencher email/senha -> Confirmar.
