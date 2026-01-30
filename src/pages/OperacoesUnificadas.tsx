@@ -493,20 +493,21 @@ export default function OperacoesUnificadas() {
   };
 
 
+  // Métricas agora usam os dados filtrados por data/filtros
   const metrics = {
-    totalEnvios: shipments.length,
-    totalAtivos: shipments.filter(s => !["delivered", "not_delivered", "cancelled"].includes(s.status)).length,
-    emRota: shipments.filter(s => ["shipped", "out_for_delivery"].includes(s.status)).length,
-    pendentes: shipments.filter(s => s.status === "ready_to_ship").length,
-    entreguesTotal: shipments.filter(s => s.status === "delivered").length,
-    entreguesHoje: shipments.filter(s => {
+    totalEnvios: filteredShipments.length,
+    totalAtivos: filteredShipments.filter(s => !["delivered", "not_delivered", "cancelled"].includes(s.status)).length,
+    emRota: filteredShipments.filter(s => ["shipped", "out_for_delivery"].includes(s.status)).length,
+    pendentes: filteredShipments.filter(s => s.status === "ready_to_ship").length,
+    entreguesTotal: filteredShipments.filter(s => s.status === "delivered").length,
+    entreguesHoje: filteredShipments.filter(s => {
       const today = new Date().toDateString();
       return s.status === "delivered" && new Date(s.last_ml_update).toDateString() === today;
     }).length,
-    naoEntregues: shipments.filter(s => s.status === "not_delivered").length,
-    comAlertas: shipments.filter(s => s.alertas_ativos > 0).length,
-    alertasPendentes: alerts.filter(a => a.status === "pending").length,
-    alertasResolvidos: alerts.filter(a => a.status === "resolved").length,
+    naoEntregues: filteredShipments.filter(s => s.status === "not_delivered").length,
+    comAlertas: filteredShipments.filter(s => s.alertas_ativos > 0).length,
+    alertasPendentes: filteredAlerts.filter(a => a.status === "pending").length,
+    alertasResolvidos: filteredAlerts.filter(a => a.status === "resolved").length,
   };
 
   if (loading) {
