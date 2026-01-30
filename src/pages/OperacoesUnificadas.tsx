@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import ShipmentHistoryModal from "@/components/ShipmentHistoryModal";
+import SyncStatusModal from "@/components/SyncStatusModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
@@ -134,6 +135,7 @@ export default function OperacoesUnificadas() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [returningId, setReturningId] = useState<string | null>(null);
   const [historyModal, setHistoryModal] = useState<{ isOpen: boolean; shipmentId: string; mlUserId: number } | null>(null);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
 
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -459,25 +461,8 @@ export default function OperacoesUnificadas() {
     }
   };
 
-  const handleSyncAll = async () => {
-    setSyncingAll(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("sync-all-accounts", {
-        body: { hours_back: 48 },
-      });
-      if (error) throw error;
-      
-      const results = data?.results || [];
-      const totalShipments = results.reduce((acc: number, r: any) => acc + (r.shipments_processed || 0), 0);
-      
-      toast.success(`Sincronização concluída! ${totalShipments} envios atualizados de ${results.length} contas`);
-      await loadAllData();
-    } catch (error: any) {
-      console.error("Erro ao sincronizar:", error);
-      toast.error(error.message || "Erro ao sincronizar contas");
-    } finally {
-      setSyncingAll(false);
-    }
+  const handleSyncAll = () => {
+    setSyncModalOpen(true);
   };
 
   const getAlertTypeLabel = (type: string) => {
@@ -1204,6 +1189,13 @@ export default function OperacoesUnificadas() {
           mlUserId={historyModal.mlUserId}
         />
       )}
+
+      {/* Sync Status Modal */}
+      <SyncStatusModal
+        open={syncModalOpen}
+        onOpenChange={setSyncModalOpen}
+        onComplete={() => loadAllData()}
+      />
     </Layout>
   );
 }
