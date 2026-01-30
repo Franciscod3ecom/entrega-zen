@@ -1,207 +1,268 @@
 
-# Plano de Implementação: Design System D3ECOM (v4.1 Liquid Edition)
+# Plano de Otimizacao e Melhorias do RASTREIO_FLEX
 
 ## Resumo Executivo
-Transformar a interface do RASTREIO_FLEX de um tema "Apple-like" claro para uma estética **Dark Premium** com efeitos de vidro líquido (Liquid Glass), cor dourada como primária (#FFC700) e animações suaves inspiradas no iOS 18.
+
+Este plano aborda 5 grandes frentes de melhorias solicitadas:
+
+1. **Otimizacao do Banco de Dados** - Limpeza e reestruturacao para reduzir armazenamento
+2. **Consolidacao de Botoes** - Eliminar redundancia de botoes de sincronizacao
+3. **Limite de Importacao de Pedidos** - Restringir apenas aos ultimos 7 dias (padrao)
+4. **Filtro por Data** - Adicionar filtro de periodo na pagina de Operacoes
+5. **Relatorio PDF de Alertas** - Gerar PDF com pendencias para envio a transportadoras
+6. **Correcao da Contagem de Bipagem** - Evitar contagem duplicada de pacotes ja bipados
 
 ---
 
-## 1. Arquivos a Serem Modificados
+## FASE 1: Otimizacao do Banco de Dados
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/index.css` | Refazer totalmente: novas variáveis CSS, classe `.liquid-glass`, animações, cores D3ECOM |
-| `tailwind.config.ts` | Adicionar cores gold, novas animações (shimmer, liquid-move, pulse-gold) |
-| `src/components/Layout.tsx` | Aplicar liquid-glass no header e bottom-nav, ajustar cores |
-| `src/components/ui/button.tsx` | Nova variante `gold` com shimmer e sombra dourada |
-| `src/components/ui/card.tsx` | Aplicar liquid-glass por padrão |
-| `src/components/ui/input.tsx` | Adicionar animação shimmer e foco dourado |
-| `src/pages/Auth.tsx` | Background com blobs animados, liquid-glass no card |
-| Todas as páginas | Ajustar classes para usar novo sistema de cores |
+### Problema Identificado
+- Tabela `shipments_cache` ocupando ~17 MB com dados redundantes
+- Campo `raw_data` (JSONB) armazenando ~4.2 KB por registro quando apenas ~500 bytes sao usados
+- Pedidos de 2024 e anteriores ocupando espaco desnecessario
 
----
+### Solucao
 
-## 2. Nova Paleta de Cores CSS
+#### 1.1 Adicionar colunas dedicadas
+Criar colunas `cliente_nome`, `cidade`, `estado` na tabela `shipments_cache` para evitar parsing de JSON:
 
 ```text
-+------------------------------------------+
-|               CORES D3ECOM               |
-+------------------------------------------+
-| GOLD PRIMARY    | #FFC700               |
-| GOLD HOVER      | #E6B800               |
-| GOLD GLOW       | rgba(255,199,0,0.6)   |
-+------------------------------------------+
-| SURFACE PAGE    | #000000               |
-| SURFACE CARD    | rgba(17,17,17,0.7)    |
-| SURFACE INPUT   | rgba(255,255,255,0.03)|
-| SURFACE ELEVATED| rgba(255,255,255,0.08)|
-+------------------------------------------+
-| TEXT PRIMARY    | #FFFFFF               |
-| TEXT SECONDARY  | #D1D1D1               |
-| TEXT MUTED      | #8A8A8A               |
-+------------------------------------------+
++---------------------------+
+|    shipments_cache        |
++---------------------------+
+| + cliente_nome TEXT       |
+| + cidade TEXT             |
+| + estado TEXT             |
++---------------------------+
 ```
 
----
+#### 1.2 Funcao de limpeza de raw_data
+Criar funcao SQL que remove campos pesados do JSONB para envios finalizados (delivered/not_delivered/cancelled) com mais de 48h:
+- Remover: `destination`, `origin`, `lead_time`, `quotation`, `snapshot_packing`
+- Manter: `id`, `status`, `substatus`, `logistic`, `buyer_info`
 
-## 3. Especificacao Liquid Glass
+#### 1.3 Edge Function de limpeza
+Criar `cleanup-old-shipments` que:
+- Executa limpeza de raw_data pesados
+- Pode deletar envios muito antigos (30+ dias se configurado)
+- Limpa tabelas de sistema (`job_run_details`, `_http_response`)
 
-A classe `.liquid-glass` tera as seguintes propriedades:
+#### 1.4 Atualizar funcoes de sync
+Modificar `sync-orders-initial`, `sync-all-accounts`, `sync-orders-periodic`, `meli-webhook` para:
+- Salvar `cliente_nome`, `cidade`, `estado` nas novas colunas
+- Armazenar `raw_data` slim (apenas campos essenciais)
 
-- **backdrop-filter**: `blur(100px) saturate(280%) contrast(110%)`
-- **background**: `rgba(17, 17, 17, 0.7)`
-- **border**: `1px solid rgba(255, 255, 255, 0.08)`
-- **Reflexo interno**: Gradiente linear 135 graus com opacidade baixa
-
----
-
-## 4. Novas Animacoes
-
-### 4.1 Input Shimmer
-Brilho horizontal que percorre o campo de input sutilmente
-
-### 4.2 Liquid Move
-Blobs de fundo que se movem em ciclos de 20-30 segundos
-
-### 4.3 Pulse Gold
-Pulsacao dourada para indicar sucesso ou atividade
-
-### 4.4 Fade-in Zoom
-Transicoes de etapa usando fade + zoom para sensacao nativa
+### Arquivos a Modificar
+- Nova edge function: `supabase/functions/cleanup-old-shipments/index.ts`
+- `supabase/functions/sync-orders-initial/index.ts`
+- `supabase/functions/sync-all-accounts/index.ts`
+- `supabase/functions/sync-orders-periodic/index.ts`
+- `supabase/functions/meli-webhook/index.ts`
+- Migracao SQL para novas colunas e view atualizada
 
 ---
 
-## 5. Etapas de Implementacao
+## FASE 2: Consolidacao de Botoes de Sincronizacao
 
-### Etapa 1: Base CSS (index.css)
-- Remover tema claro (light mode sera removido, apenas dark)
-- Criar variaveis CSS para todas as cores D3ECOM
-- Implementar classe `.liquid-glass`
-- Adicionar animacoes keyframes (shimmer, liquid-move, pulse-gold)
-- Definir tipografia com font Inter, pesos 500/700/900
+### Problema Identificado
+No Dashboard existem 5 botoes na area de "Manutencao":
+- Sincronizar Contas
+- Atualizar Status
+- Verificar Problemas
+- Diagnosticar
+- Corrigir Inconsistencias
 
-### Etapa 2: Tailwind Config
-- Adicionar cores: gold, gold-hover, gold-glow
-- Adicionar surfaces: page, card, input, elevated
-- Adicionar animacoes customizadas
-- Configurar sombras douradas
+Na pagina Operacoes existem 2 botoes:
+- Sincronizar ML
+- Atualizar
 
-### Etapa 3: Componentes UI Base
-- **Button**: Nova variante `gold` com shimmer interno
-- **Card**: Aplicar liquid-glass como estilo padrao
-- **Input**: Focus ring dourado, animacao shimmer
-- **Badge**: Variantes com cores D3ECOM
+### Solucao
 
-### Etapa 4: Layout Principal
-- Header com liquid-glass e borda specular
-- Bottom navigation mobile com efeito glass
-- Sidebar com fundo escuro e hover dourado
-- Logo com brilho gold
+#### 2.1 Dashboard - Simplificar para 2 botoes
+| Botao Atual | Acao |
+|-------------|------|
+| Sincronizar Contas + Atualizar Status | Unificar em **"Sincronizar Tudo"** |
+| Verificar Problemas + Diagnosticar + Corrigir | Unificar em **"Verificar e Corrigir"** |
 
-### Etapa 5: Pagina de Login (Auth.tsx)
-- Background preto com blobs animados (liquid-move)
-- Card central com liquid-glass
-- Botoes dourados com shimmer
-- Inputs com animacao de foco
+#### 2.2 Operacoes Unificadas - Remover redundancia
+| Botao Atual | Acao |
+|-------------|------|
+| Sincronizar ML | Manter (unico botao de sync) |
+| Atualizar | Remover (ja tem realtime) |
 
-### Etapa 6: Dashboard e Paginas
-- Cards de metricas com liquid-glass
-- Badges de status com cores atualizadas
-- Tabelas com hover dourado sutil
-- Botoes de acao em gold
+### Arquivos a Modificar
+- `src/pages/Dashboard.tsx`
+- `src/pages/OperacoesUnificadas.tsx`
 
 ---
 
-## 6. Detalhes Tecnicos
+## FASE 3: Limite de Importacao de Pedidos
 
-### Variaveis CSS Principais
-```css
-:root {
-  --gold: 45 100% 50%;
-  --gold-hover: 45 100% 45%;
-  --gold-glow: 45 100% 50%;
-  --surface-page: 0 0% 0%;
-  --surface-card: 0 0% 7%;
-  --surface-input: 0 0% 3%;
-  --text-primary: 0 0% 100%;
-  --text-secondary: 0 0% 82%;
-  --text-muted: 0 0% 54%;
-}
-```
+### Problema Identificado
+O sistema importa pedidos sem limite de data, trazendo pedidos de 2024 e anteriores.
 
-### Classe Liquid Glass
-```css
-.liquid-glass {
-  background: rgba(17, 17, 17, 0.7);
-  backdrop-filter: blur(100px) saturate(280%) contrast(110%);
-  -webkit-backdrop-filter: blur(100px) saturate(280%) contrast(110%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background-image: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    transparent 50%
-  );
-}
-```
+### Solucao
 
-### Animacao Shimmer para Inputs
-```css
-@keyframes input-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-```
+#### 3.1 Adicionar parametro `days_back` nas funcoes de sync
+- Padrao: 7 dias para sync manual
+- Maximo: 30 dias para sincronizacao inicial
+- Sync periodico: 48 horas (manter)
 
-### Animacao Liquid Move para Blobs
-```css
-@keyframes liquid-move {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-}
-```
+#### 3.2 Interface para escolher periodo
+Na pagina de Operacoes, ao clicar em "Sincronizar ML", mostrar opcoes:
+- Ultimos 7 dias (padrao)
+- Ultimos 15 dias
+- Ultimos 30 dias
+
+### Arquivos a Modificar
+- `supabase/functions/sync-all-accounts/index.ts`
+- `supabase/functions/sync-orders-initial/index.ts`
+- `src/pages/OperacoesUnificadas.tsx` (dialog de opcoes)
 
 ---
 
-## 7. Componentes Afetados
+## FASE 4: Filtro por Data na Pagina de Operacoes
 
-| Componente | Mudanca |
-|------------|---------|
-| StatusBadge | Novas cores para status (gold para ativos) |
-| NotificationCenter | Popup com liquid-glass |
-| ShipmentHistoryModal | Modal com liquid-glass e bordas sutis |
-| DiagnosticReportModal | Mesmo tratamento |
-| Tabs | Indicador dourado |
-| Select | Dropdown com liquid-glass |
-| Dialog | Overlay escuro, conteudo liquid-glass |
+### Problema Identificado
+Nao existe filtro por data na listagem de envios.
 
----
+### Solucao
 
-## 8. Consideracoes de Performance
+#### 4.1 Adicionar componente de filtro de data
+Opcoes pre-definidas:
+- Hoje
+- Ultimos 7 dias
+- Ultimos 15 dias
+- Ultimos 30 dias
+- Este mes
+- Mes anterior
+- Personalizado (de/ate)
 
-- **backdrop-filter** pode impactar performance em dispositivos antigos
-- Fallback para dispositivos sem suporte: background solido escuro
-- Limitar numero de blobs animados a 2-3 por pagina
-- Usar `will-change: transform` nos elementos animados
+#### 4.2 Aplicar filtro na query
+Filtrar pela coluna `last_ml_update` ou `created_at` na view `v_rastreamento_completo`.
 
----
-
-## 9. Compatibilidade
-
-- Manter suporte a Safari com `-webkit-backdrop-filter`
-- Testar em dispositivos iOS para garantir efeito glass correto
-- Touch targets continuam com minimo 44px
+### Arquivos a Modificar
+- `src/pages/OperacoesUnificadas.tsx` (adicionar filtro de data)
+- Atualizar view `v_rastreamento_completo` (se necessario adicionar `created_at`)
 
 ---
 
-## 10. Resultado Esperado
+## FASE 5: Relatorio PDF de Alertas/Pendencias
 
-Apos a implementacao, o RASTREIO_FLEX tera:
+### Problema Identificado
+O cliente precisa gerar um PDF com lista de entregas nao devolvidas para enviar a transportadoras/motoristas.
 
-- Visual escuro premium com profundidade
-- Efeitos de vidro liquido em todos os cards e modais
-- Cor dourada (#FFC700) como acao principal
-- Animacoes suaves e nativas (iOS-like)
-- Tipografia Inter com hierarquia clara
-- Sombras e brilhos dourados nos elementos interativos
+### Solucao
 
+#### 5.1 Adicionar informacoes extras na aba de Alertas
+Para cada alerta exibir:
+- Codigo do envio
+- Pedido/Pack ID do Mercado Livre
+- Nome do cliente
+- Motorista responsavel
+- Data prevista de entrega
+- Dias em atraso
+
+#### 5.2 Criar componente de geracao de PDF
+Usar biblioteca `jspdf` ou gerar via edge function:
+- Cabecalho com logo e data
+- Tabela com pendencias
+- Filtro por motorista/transportadora
+- Assinatura para recebimento
+
+#### 5.3 Botao "Exportar PDF" na interface
+Adicionar botao na aba de Alertas para gerar relatorio.
+
+### Arquivos a Criar/Modificar
+- `src/components/PendingReportPDF.tsx` (novo componente)
+- `src/pages/OperacoesUnificadas.tsx` (botao de exportar)
+- Instalar `jspdf` e `jspdf-autotable` para geracao de PDF no frontend
+
+---
+
+## FASE 6: Correcao da Contagem de Bipagem
+
+### Problema Identificado
+Quando o mesmo codigo e bipado mais de uma vez, o sistema:
+1. Adiciona na fila (contagem aumenta)
+2. Backend retorna que ja esta bipado
+3. Contagem fica inflada (ex: 15 pacotes quando eram 10)
+
+### Solucao
+
+#### 6.1 Melhorar validacao no hook `useBatchScanner`
+Atualmente o hook verifica:
+- Cooldown de 3 segundos
+- Se existe em `pendingItems`
+- Se existe em `syncedItems` com status "success"
+
+Problema: O cooldown expira e permite re-adicionar.
+
+#### 6.2 Implementar validacao persistente
+- Armazenar todos os shipmentIds ja escaneados na sessao atual (Set persistente)
+- Ao receber resposta do backend "ja esta com mesmo motorista", nao incrementar contagem
+- Exibir feedback "Ja bipado" sem adicionar a fila
+
+#### 6.3 Atualizar UI do scanner
+Quando codigo ja foi escaneado:
+- Vibrar diferente (2 vibracao curtas)
+- Mostrar mensagem "Ja escaneado" sem adicionar a lista
+
+### Arquivos a Modificar
+- `src/hooks/useBatchScanner.ts`
+- `src/pages/Bipagem.tsx` (feedback visual)
+
+---
+
+## Resumo de Arquivos
+
+### Novos Arquivos
+| Arquivo | Descricao |
+|---------|-----------|
+| `supabase/functions/cleanup-old-shipments/index.ts` | Edge function de limpeza |
+| `src/components/PendingReportPDF.tsx` | Componente de geracao de PDF |
+
+### Arquivos Modificados
+| Arquivo | Alteracoes |
+|---------|------------|
+| `src/pages/Dashboard.tsx` | Consolidar botoes de manutencao |
+| `src/pages/OperacoesUnificadas.tsx` | Filtro de data, botao PDF, remover botao Atualizar |
+| `src/hooks/useBatchScanner.ts` | Corrigir contagem duplicada |
+| `src/pages/Bipagem.tsx` | Feedback para codigo ja escaneado |
+| `supabase/functions/sync-orders-initial/index.ts` | Limite de dias + raw_data slim |
+| `supabase/functions/sync-all-accounts/index.ts` | Limite de dias + raw_data slim |
+| `supabase/functions/sync-orders-periodic/index.ts` | Raw_data slim |
+| `supabase/functions/meli-webhook/index.ts` | Raw_data slim |
+
+### Migracoes SQL
+1. Adicionar colunas `cliente_nome`, `cidade`, `estado` em `shipments_cache`
+2. Popular colunas com dados existentes
+3. Criar funcao de limpeza de JSONB
+4. Atualizar view `v_rastreamento_completo`
+
+---
+
+## Dependencias a Instalar
+- `jspdf` - Geracao de PDF
+- `jspdf-autotable` - Tabelas em PDF
+
+---
+
+## Ordem de Implementacao Sugerida
+
+1. **FASE 6** - Correcao da bipagem (impacto imediato no uso diario)
+2. **FASE 4** - Filtro por data (melhoria de UX)
+3. **FASE 2** - Consolidacao de botoes (limpeza de interface)
+4. **FASE 3** - Limite de importacao (evitar novos dados desnecessarios)
+5. **FASE 1** - Otimizacao do banco (limpeza retroativa)
+6. **FASE 5** - Relatorio PDF (funcionalidade adicional)
+
+---
+
+## Estimativa de Economia de Armazenamento
+
+| Item | Antes | Depois | Economia |
+|------|-------|--------|----------|
+| raw_data por registro | 4.2 KB | ~500 bytes | 88% |
+| Envios finalizados antigos | 3.5 MB | 400 KB | ~3 MB |
+| Total shipments_cache | 17 MB | ~5 MB | ~12 MB |
